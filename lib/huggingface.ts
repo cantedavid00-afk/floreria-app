@@ -41,9 +41,17 @@ INSTRUCCIONES CRÍTICAS:
 - Los TULIPANES tienen forma de copa/huevo cerrado con pétalos lisos y tallo largo.
 - Las ROSAS tienen pétalos en espiral enrollados hacia adentro.
 - Las GERBERAS son flores grandes con pétalos planos irradiando desde un centro oscuro.
+- Las DALIAS tienen pétalos en punta como estrella o cactus, organizados en capas concéntricas.
+- Los ANTHURIUMS tienen forma de corazón brillante con espádice central.
+- Las HORTENSIAS son racimos grandes de flores pequeñas agrupadas como pompón.
 - Cuenta cada tipo de flor POR COLOR de forma independiente.
 - Si hay 6 Gerberas rosas y 2 Gerberas fucsia, crea DOS entradas separadas.
 - Sé generoso con las cantidades.
+- Nombres VÁLIDOS (usa exactamente estos):
+Rosa, Rosa Mini, Rosa Inglesa, Tulipán, Lilium, Lirio, Clavel, Gerbera,
+Dalia, Orquídea, Margarita, Girasol, Alstroemeria, Hortensia, Peonía,
+Lavanda, Fresia, Anémona, Ranúnculo, Lisianthus, Snapdragon, Gypsophila,
+Ave del Paraíso, Anthurium
 
 Responde ÚNICAMENTE con JSON válido:
 
