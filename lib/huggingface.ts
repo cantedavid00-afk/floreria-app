@@ -35,22 +35,28 @@ export async function detectarFlores(
     const token = process.env.GITHUB_TOKEN
     if (!token) throw new Error('Falta GITHUB_TOKEN en .env.local')
 
-    const prompt = `Eres un experto en flores. Analiza esta imagen de un ramo con MUCHO detalle.
+    // 🌸 PROMPT MEJORADO 🌸
+    // Se han añadido descripciones específicas para Peonías, Rosas Inglesas y flores de relleno.
+    const prompt = `Eres un experto en botánica y floristería. Analiza esta imagen de un ramo con MUCHO detalle.
 
-INSTRUCCIONES CRÍTICAS:
+INSTRUCCIONES CRÍTICAS PARA IDENTIFICACIÓN:
+- Las PEONÍAS tienen forma esférica o redondeada, con muchísimos pétalos apretados, arrugados o rizados, dando apariencia de repollo o pompón denso. Suelen confundirse con rosas, pero son más globosas, llenas y sin el centro en espiral clásico.
+- Las ROSAS INGLESAS también tienen forma de copa profunda con multitud de pétalos concéntricos muy apretados, parecidas a las peonías.
+- Las ROSAS TRADICIONALES tienen pétalos lisos en espiral enrollados hacia adentro y un centro puntiagudo.
 - Los TULIPANES tienen forma de copa/huevo cerrado con pétalos lisos y tallo largo.
-- Las ROSAS tienen pétalos en espiral enrollados hacia adentro.
 - Las GERBERAS son flores grandes con pétalos planos irradiando desde un centro oscuro.
 - Las DALIAS tienen pétalos en punta como estrella o cactus, organizados en capas concéntricas.
-- Los ANTHURIUMS tienen forma de corazón brillante con espádice central.
 - Las HORTENSIAS son racimos grandes de flores pequeñas agrupadas como pompón.
+- La GYPSOPHILA o flores de relleno secas (como el Limonium) son pequeños racimos de florecitas diminutas que acompañan a las principales.
+
+REGLAS DE CONTEO Y FORMATO:
 - Cuenta cada tipo de flor POR COLOR de forma independiente.
-- Si hay 6 Gerberas rosas y 2 Gerberas fucsia, crea DOS entradas separadas.
-- Sé generoso con las cantidades.
+- Si hay 35 Peonías rosas y 12 Peonías blancas, crea DOS entradas separadas.
+- Sé preciso con las cantidades. Si ves un ramo masivo (ej. 40-50 flores), la cantidad_estimada debe reflejar ese volumen total.
 - Nombres VÁLIDOS (usa exactamente estos):
 Rosa, Rosa Mini, Rosa Inglesa, Tulipán, Lilium, Lirio, Clavel, Gerbera,
 Dalia, Orquídea, Margarita, Girasol, Alstroemeria, Hortensia, Peonía,
-Lavanda, Fresia, Anémona, Ranúnculo, Lisianthus, Snapdragon, Gypsophila,
+Lavanda, Fresia, Anémona, Ranúnculo, Lisianthus, Snapdragon, Gypsophila, Limonium,
 Ave del Paraíso, Anthurium
 
 Responde ÚNICAMENTE con JSON válido:
@@ -67,9 +73,6 @@ Responde ÚNICAMENTE con JSON válido:
   "tipo_follaje": "descripción o null"
 }
 
-Nombres VÁLIDOS:
-Rosa, Rosa Mini, Rosa Inglesa, Tulipán, Lilium, Lirio, Clavel, Gerbera, Orquídea, Margarita, Girasol, Alstroemeria, Hortensia, Peonía, Lavanda, Fresia, Anémona, Ranúnculo, Lisianthus, Snapdragon, Gypsophila, Ave del Paraíso, Anthurium
-
 Colores VÁLIDOS:
 Rojo, Rosa, Rosado, Blanco, Amarillo, Naranja, Morado, Azul, Verde, Fucsia, Coral, Bicolor, Lila, Crema, Beige`
 
@@ -82,7 +85,7 @@ Rojo, Rosa, Rosado, Blanco, Amarillo, Naranja, Morado, Azul, Verde, Fucsia, Cora
         'Content-Type':  'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4o-mini', // Nota: gpt-4o-mini es rápido, pero si la precisión sigue fallando, podrías probar con 'gpt-4o'
         messages: [
           {
             role:    'user',
@@ -93,7 +96,7 @@ Rojo, Rosa, Rosado, Blanco, Amarillo, Naranja, Morado, Azul, Verde, Fucsia, Cora
           },
         ],
         response_format: { type: 'json_object' },
-        temperature:     0.1,
+        temperature:     0.1, // Temperatura baja para que sea consistente
       }),
     })
 
