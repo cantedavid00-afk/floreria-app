@@ -239,7 +239,7 @@ export default function CotizadorPage() {
       <nav className="bg-white border-b border-rose-100 px-6 py-4 sticky top-0 z-10">
         <div className="max-w-lg mx-auto flex items-center justify-between">
           <Link href="/" className="text-rose-600 font-bold text-lg">
-            💐 Florería Bella
+            💐 Florería RoCé
           </Link>
           {paso === 'editar' && (
             <button
