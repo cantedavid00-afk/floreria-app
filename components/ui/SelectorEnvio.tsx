@@ -14,6 +14,7 @@ interface Sucursal {
   id:        string
   nombre:    string
   direccion: string
+  maps_url?: string
 }
 
 interface SelectorEnvioProps {
@@ -146,11 +147,14 @@ export default function SelectorEnvio({
           </div>
         )}
 
-        {/* ── Recoger en sucursal ───────────────────────── */}
+       {/* ── Recoger en sucursal ───────────────────────── */}
         {modo === 'sucursal' && (
           <div className="space-y-2">
             {sucursales.map((suc) => {
-              const activa = seleccionado?.tipo === 'sucursal' && seleccionado.sucursal?.id === suc.id
+              const activa =
+                seleccionado?.tipo === 'sucursal' &&
+                seleccionado.sucursal?.id === suc.id
+        
               return (
                 <button
                   key={suc.id}
@@ -162,15 +166,37 @@ export default function SelectorEnvio({
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className={`font-semibold text-sm ${activa ? 'text-rose-700' : 'text-gray-700'}`}>
+                      <p
+                        className={`font-semibold text-sm ${
+                          activa ? 'text-rose-700' : 'text-gray-700'
+                        }`}
+                      >
                         🏪 {suc.nombre}
                       </p>
-                      <p className="text-xs text-gray-400 mt-0.5">{suc.direccion}</p>
+        
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {suc.direccion}
+                      </p>
+        
+                      {/* 🌍 NUEVO: Link a Google Maps */}
+                      {suc.maps_url && (
+                        <a
+                          href={suc.maps_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700 mt-1.5 font-medium"
+                        >
+                          📍 Ver en Google Maps ↗
+                        </a>
+                      )}
                     </div>
+        
                     <span className="text-emerald-600 font-bold text-sm flex-shrink-0 ml-2">
                       Gratis
                     </span>
                   </div>
+        
                   {activa && (
                     <p className="text-xs text-rose-500 mt-2 font-medium">
                       ✓ Seleccionada
