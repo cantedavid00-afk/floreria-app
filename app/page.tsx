@@ -9,7 +9,7 @@ export default function HomePage() {
         {/* Hero */}
         <div className="text-8xl mb-6 select-none">💐</div>
         <h1 className="text-5xl font-bold text-rose-800 mb-3">
-          Florería Bella
+          Florería RoCé
         </h1>
         <p className="text-xl text-rose-600 mb-2">
           Cotizador inteligente de arreglos florales
