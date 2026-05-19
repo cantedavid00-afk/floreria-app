@@ -1,4 +1,4 @@
-// lib/huggingface.ts — reemplaza todo el archivo
+// lib/huggingface.ts 
 
 export interface ResultadoIA {
   exitoso: boolean
