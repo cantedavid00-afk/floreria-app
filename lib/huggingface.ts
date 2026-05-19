@@ -1,4 +1,4 @@
-// lib/huggingface.ts 
+// lib/huggingface.ts HOla
 
 export interface ResultadoIA {
   exitoso: boolean
