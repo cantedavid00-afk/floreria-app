@@ -1,4 +1,4 @@
-// proxy.ts (reemplaza todo el contenido)
+// proxy.ts
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
@@ -18,5 +18,4 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   matcher: ['/admin/:path*'],
-}# Verificar que .env.local está protegido en .gitignore
-findstr "env.local" .gitignore
+}
