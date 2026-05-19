@@ -120,7 +120,7 @@ Rojo, Rosa, Rosado, Blanco, Amarillo, Naranja, Morado, Azul, Verde, Fucsia, Cora
         'Content-Type':  'application/json',
       },
       body: JSON.stringify({
-        model:    'gpt-4o-mini',
+        model:    'gpt-4o',
         messages: [
           {
             role:    'user',
