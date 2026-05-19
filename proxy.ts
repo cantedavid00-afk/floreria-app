@@ -18,4 +18,5 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   matcher: ['/admin/:path*'],
-}
+}# Verificar que .env.local está protegido en .gitignore
+findstr "env.local" .gitignore
