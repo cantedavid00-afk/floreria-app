@@ -1,10 +1,9 @@
-// app/api/cotizar/route.ts  (reemplaza todo el archivo)
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { detectarFlores } from '@/lib/huggingface'
-
 import { obtenerCatalogo, construirCotizacion } from '@/lib/cotizador'
 import { v4 as uuidv4 } from 'uuid'
+
 
 export const maxDuration = 10
 
@@ -26,16 +25,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'La imagen no debe superar 5 MB.' }, { status: 400 })
     }
 
-    const extension    = archivo.name.split('.').pop() ?? 'jpg'
-    const rutaArchivo  = `cotizaciones/${uuidv4()}.${extension}`
-    const buffer       = await archivo.arrayBuffer()
+    const buffer      = await archivo.arrayBuffer()
+    const extension   = archivo.name.split('.').pop() ?? 'jpg'
+    const rutaArchivo = `cotizaciones/${uuidv4()}.${extension}`
 
-    // Subir imagen a Storage
+    // Subir imagen original a Storage
     const { error: errorStorage } = await supabaseAdmin.storage
       .from('imagenes-cotizaciones')
       .upload(rutaArchivo, buffer, { contentType: archivo.type, upsert: false })
 
     if (errorStorage) {
+      console.error('[Storage] Error:', errorStorage)
       return NextResponse.json({ error: 'Error al subir la imagen.' }, { status: 500 })
     }
 
@@ -43,13 +43,8 @@ export async function POST(req: NextRequest) {
       .from('imagenes-cotizaciones')
       .getPublicUrl(rutaArchivo)
 
-    // Llamar a Claude Vision
-    const resultadoIA = await detectarFlores(buffer, 8000)
-    console.log('═══════════════════════════════════')
-    console.log('IA exitosa:', resultadoIA.exitoso)
-    console.log('Flores detectadas:', JSON.stringify(resultadoIA.flores_detectadas, null, 2))
-    console.log('Mensaje:', resultadoIA.mensaje_debug)
-    console.log('═══════════════════════════════════')
+    // Llamar a la IA
+    const resultadoIA = await detectarFlores(buffer, 55000)
 
     // Obtener catálogo
     const { flores, papeles, tamanos } = await obtenerCatalogo()
@@ -58,7 +53,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No hay flores en el catálogo.' }, { status: 500 })
     }
 
-    // Tamaño elegido por el usuario (o M por defecto)
     const tamanoElegido =
       tamanos.find((t) => t.id === tamanoId) ??
       tamanos.find((t) => t.clave === 'M') ??
@@ -67,7 +61,6 @@ export async function POST(req: NextRequest) {
     const papelDefault =
       papeles.find((p) => p.nombre === 'Kraft Natural') ?? papeles[0]
 
-    // Construir cotización
     const cotizacionBase = construirCotizacion(
       resultadoIA.flores_detectadas,
       flores,
@@ -75,7 +68,6 @@ export async function POST(req: NextRequest) {
       tamanoElegido
     )
 
-    // Guardar en BD
     const { data: guardada } = await supabaseAdmin
       .from('cotizaciones')
       .insert({
@@ -90,19 +82,19 @@ export async function POST(req: NextRequest) {
       .single()
 
     return NextResponse.json({
-      ok:          true,
+      ok:            true,
       cotizacion_id: guardada?.id ?? null,
-      imagen_url:  urlData.publicUrl,
-      imagen_path: rutaArchivo,
-      ia_exitosa:  resultadoIA.exitoso,
-      ia_mensaje:  resultadoIA.mensaje_debug ?? null,
+      imagen_url:    urlData.publicUrl,
+      imagen_path:   rutaArchivo,
+      ia_exitosa:    resultadoIA.exitoso,
+      ia_mensaje:    resultadoIA.mensaje_debug ?? null,
       ...cotizacionBase,
-      tamano:      tamanoElegido,
-      catalogo:    { flores, papeles, tamanos },
+      tamano:        tamanoElegido,
+      catalogo:      { flores, papeles, tamanos },
     })
 
   } catch (error) {
     console.error('[/api/cotizar]', error)
-    return NextResponse.json({ error: 'Error interno.' }, { status: 500 })
+    return NextResponse.json({ error: 'Error interno del servidor.' }, { status: 500 })
   }
 }
