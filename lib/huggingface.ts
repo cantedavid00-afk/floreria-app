@@ -1,4 +1,4 @@
-// lib/huggingface.ts HOla
+// lib/huggingface.ts
 
 export interface ResultadoIA {
   exitoso: boolean
@@ -120,7 +120,7 @@ Rojo, Rosa, Rosado, Blanco, Amarillo, Naranja, Morado, Azul, Verde, Fucsia, Cora
         'Content-Type':  'application/json',
       },
       body: JSON.stringify({
-        model:    'gpt-4o',
+        model:    'gpt-4o-mini',
         messages: [
           {
             role:    'user',
