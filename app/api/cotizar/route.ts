@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     if (!tiposPermitidos.includes(archivo.type)) {
       return NextResponse.json({ error: 'Solo JPG, PNG o WEBP.' }, { status: 400 })
     }
-    if (archivo.size > 5 * 1024 * 1024) {
+    if (archivo.size > 10 * 1024 * 1024) {
       return NextResponse.json({ error: 'La imagen no debe superar 5 MB.' }, { status: 400 })
     }
 
