@@ -1,33 +1,37 @@
+// components/ui/EditorCotizacion.tsx
 'use client'
 
 import { useState } from 'react'
 import Image from 'next/image'
-import { Flor, ItemCotizacion, PapelEnvoltura, TamanoRamo } from '@/types'
+import { Flor, ItemCotizacion, PapelEnvoltura, TamanoRamo, Accesorio } from '@/types'
 import TarjetaFlor from './TarjetaFlor'
 import BuscadorFlores from './BuscadorFlores'
 import SelectorTamano from './SelectorTamano'
-import SelectorEnvio, { OpcionEnvio } from './SelectorEnvio'
+import SelectorAccesorios from './SelectorAccesorios'
 
-// ── Tipos ─────────────────────────────────────────────────────
+const MARGEN = 0.35  // 35% oculto al cliente
+
 export interface DatosCotizacion {
   id?:                  string
   imagen_url:           string
   imagen_path:          string
   ia_exitosa:           boolean
   ia_mensaje?:          string
-  follaje_descripcion?: string   // ← texto del follaje detectado por IA
+  follaje_descripcion?: string
   detalle:              ItemCotizacion[]
   papel:                PapelEnvoltura
   tamano:               TamanoRamo
+  accesorios_seleccionados: Accesorio[]
   total:                number
-  catalogo: {
-    flores:  Flor[]
-    papeles: PapelEnvoltura[]
-    tamanos: TamanoRamo[]
-  }
-  envio?:               OpcionEnvio | null
   nota?:                string
-  sucursales?:          { id: string; nombre: string; direccion: string }[]
+  envio?:               { tipo: string; zona?: { nombre: string; descripcion: string; precio: number }; sucursal?: { nombre: string; direccion: string }; precio: number } | null
+  sucursales?:          { id: string; nombre: string; direccion: string; maps_url?: string }[]
+  catalogo: {
+    flores:      Flor[]
+    papeles:     PapelEnvoltura[]
+    tamanos:     TamanoRamo[]
+    accesorios:  Accesorio[]
+  }
 }
 
 interface EditorCotizacionProps {
@@ -37,17 +41,19 @@ interface EditorCotizacionProps {
   onNuevaCotizacion: () => void
 }
 
-// ── Helpers ───────────────────────────────────────────────────
+// ── Total con margen oculto ───────────────────────────────────
 const calcularTotal = (
-  detalle: ItemCotizacion[],
-  papel:   PapelEnvoltura,
-  tamano:  TamanoRamo,
-  envio?:  OpcionEnvio | null
-) =>
-  detalle.reduce((acc, item) => acc + item.flor.precio_unit * item.cantidad, 0) +
-  papel.precio_unit +
-  tamano.precio_extra +
-  (envio?.precio ?? 0)
+  detalle:      ItemCotizacion[],
+  tamano:       TamanoRamo,
+  accesorios:   Accesorio[],
+  costoEnvio:   number = 0
+) => {
+  const subtotalFlores     = detalle.reduce((acc, i) => acc + i.flor.precio_unit * i.cantidad, 0)
+  const subtotalAccesorios = accesorios.reduce((acc, a) => acc + a.precio_unit, 0)
+  const papelPrecio        = tamano.papel_precio ?? 0
+  const subtotalBase       = subtotalFlores + subtotalAccesorios + papelPrecio + costoEnvio
+  return Math.ceil(subtotalBase * (1 + MARGEN))  // redondear hacia arriba
+}
 
 const agruparPorNombre = (flores: Flor[]): Record<string, Flor[]> =>
   flores.reduce<Record<string, Flor[]>>((acc, flor) => {
@@ -55,153 +61,126 @@ const agruparPorNombre = (flores: Flor[]): Record<string, Flor[]> =>
     return acc
   }, {})
 
-// Palabras clave que identifican un item como follaje
-const NOMBRES_FOLLAJE = [
-  'nube', 'gypsophila', 'baby', 'follaje', 'eucalipto',
-  'helecho', 'ruscus', 'hierba', 'pampas', 'salal',
-  'monstera', 'palma', 'pitto', 'trigo',
-]
+const FOLLAJE_KEYS = ['nube', 'gypsophila', 'follaje', 'eucalipto', 'helecho', 'ruscus', 'hierba', 'pampas']
+const esFollaje = (nombre: string) =>
+  FOLLAJE_KEYS.some(f => nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(f))
 
-const esFollaje = (nombre: string) => {
-  const n = nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-  return NOMBRES_FOLLAJE.some((f) => n.includes(f))
-}
-
-// Info descriptiva de follajes comunes
-const INFO_FOLLAJE: Record<string, { emoji: string; descripcion: string }> = {
-  'nube':       { emoji: '☁️', descripcion: 'Pequeñas flores blancas en racimo que dan volumen y delicadeza' },
-  'gypsophila': { emoji: '☁️', descripcion: 'Pequeñas flores blancas en racimo que dan volumen y delicadeza' },
-  'eucalipto':  { emoji: '🌿', descripcion: 'Hojas redondeadas de aroma fresco con color verde plateado' },
-  'ruscus':     { emoji: '🌿', descripcion: 'Hojas alargadas y brillantes que dan estructura y elegancia' },
-  'helecho':    { emoji: '🌿', descripcion: 'Hojas verdes en abanico, frescas y naturales' },
-  'pampas':     { emoji: '🌾', descripcion: 'Espigas beige suaves que aportan textura y movimiento' },
-  'default':    { emoji: '🌿', descripcion: 'Verdes frescos seleccionados por el florista' },
-}
-
-const getInfoFollaje = (nombre: string) => {
-  const n = nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-  const key = Object.keys(INFO_FOLLAJE).find((k) => n.includes(k))
-  return INFO_FOLLAJE[key ?? 'default']
-}
-
-// ── Componente ────────────────────────────────────────────────
 export default function EditorCotizacion({
-  datos,
-  onActualizar,
-  onAprobar,
-  onNuevaCotizacion,
+  datos, onActualizar, onAprobar, onNuevaCotizacion,
 }: EditorCotizacionProps) {
 
   const [presupuesto,        setPresupuesto]        = useState('')
   const [mensajePresupuesto, setMensajePresupuesto] = useState<string | null>(null)
-  const [mostrarPapel,       setMostrarPapel]       = useState(false)
   const [mostrarPresupuesto, setMostrarPresupuesto] = useState(false)
-
-  const [envio,              setEnvio]              = useState<OpcionEnvio | null>(datos.envio ?? null)
   const [nota,               setNota]               = useState(datos.nota ?? '')
 
-  const florAgrupadas = agruparPorNombre(datos.catalogo.flores)
+  const florAgrupadas       = agruparPorNombre(datos.catalogo.flores)
+  const floresPrincipales   = datos.detalle.filter(i => !esFollaje(i.flor.nombre))
+  const follajes            = datos.detalle.filter(i =>  esFollaje(i.flor.nombre))
+  const costoEnvio          = datos.envio?.precio ?? 0
+  const accesoriosSelec     = datos.accesorios_seleccionados ?? []
 
-  // Separar flores principales de follajes
-  const floresPrincipales = datos.detalle.filter((item) => !esFollaje(item.flor.nombre))
-  const follajes          = datos.detalle.filter((item) =>  esFollaje(item.flor.nombre))
-  const subtotalFollajes  = follajes.reduce((acc, i) => acc + i.flor.precio_unit * i.cantidad, 0)
+  // ── Helpers de cálculo ──────────────────────────────────────
+  const recalcular = (
+    nuevoDetalle?:    ItemCotizacion[],
+    nuevoTamano?:     TamanoRamo,
+    nuevosAccesorios?: Accesorio[]
+  ) => calcularTotal(
+    nuevoDetalle    ?? datos.detalle,
+    nuevoTamano     ?? datos.tamano,
+    nuevosAccesorios ?? accesoriosSelec,
+    costoEnvio
+  )
 
-  // ── Modificar detalle ─────────────────────────────────────
+  // ── Modificar flores ────────────────────────────────────────
   const cambiarCantidad = (index: number, nueva: number) => {
-    const nuevoDetalle = datos.detalle.map((item, i) =>
+    const nd = datos.detalle.map((item, i) =>
       i === index ? { ...item, cantidad: nueva, subtotal: item.flor.precio_unit * nueva } : item
     )
-    onActualizar({ detalle: nuevoDetalle, total: calcularTotal(nuevoDetalle, datos.papel, datos.tamano, envio) })
+    onActualizar({ detalle: nd, total: recalcular(nd) })
   }
 
   const cambiarFlor = (index: number, nuevaFlor: Flor) => {
-    const nuevoDetalle = datos.detalle.map((item, i) =>
+    const nd = datos.detalle.map((item, i) =>
       i === index ? { ...item, flor: nuevaFlor, subtotal: nuevaFlor.precio_unit * item.cantidad } : item
     )
-    onActualizar({ detalle: nuevoDetalle, total: calcularTotal(nuevoDetalle, datos.papel, datos.tamano, envio) })
+    onActualizar({ detalle: nd, total: recalcular(nd) })
   }
 
   const eliminarItem = (index: number) => {
-    const nuevoDetalle = datos.detalle.filter((_, i) => i !== index)
-    onActualizar({ detalle: nuevoDetalle, total: calcularTotal(nuevoDetalle, datos.papel, datos.tamano, envio) })
+    const nd = datos.detalle.filter((_, i) => i !== index)
+    onActualizar({ detalle: nd, total: recalcular(nd) })
   }
 
   const agregarFlor = (flor: Flor, cantidad: number) => {
-    const indexExistente = datos.detalle.findIndex((item) => item.flor.id === flor.id)
-    if (indexExistente >= 0) {
-      const nuevoDetalle = datos.detalle.map((item, i) =>
-        i === indexExistente
+    const idx = datos.detalle.findIndex(i => i.flor.id === flor.id)
+    const nd = idx >= 0
+      ? datos.detalle.map((item, i) => i === idx
           ? { ...item, cantidad: item.cantidad + cantidad, subtotal: item.flor.precio_unit * (item.cantidad + cantidad) }
-          : item
-      )
-      onActualizar({ detalle: nuevoDetalle, total: calcularTotal(nuevoDetalle, datos.papel, datos.tamano, envio) })
-    } else {
-      const nuevoDetalle = [...datos.detalle, { flor, cantidad, subtotal: flor.precio_unit * cantidad }]
-      onActualizar({ detalle: nuevoDetalle, total: calcularTotal(nuevoDetalle, datos.papel, datos.tamano, envio) })
-    }
+          : item)
+      : [...datos.detalle, { flor, cantidad, subtotal: flor.precio_unit * cantidad }]
+    onActualizar({ detalle: nd, total: recalcular(nd) })
   }
 
-  const cambiarPapel = (papelId: string) => {
-    const nuevo = datos.catalogo.papeles.find((p) => p.id === papelId)
-    if (!nuevo) return
-    onActualizar({ papel: nuevo, total: calcularTotal(datos.detalle, nuevo, datos.tamano, envio) })
-  }
-
+  // ── Cambiar tamaño ──────────────────────────────────────────
   const cambiarTamano = (nuevoTamano: TamanoRamo) => {
     const ratio = nuevoTamano.multiplicador / datos.tamano.multiplicador
-    const nuevoDetalle = datos.detalle.map((item) => {
-      const nuevaCantidad = Math.max(1, Math.round(item.cantidad * ratio))
-      return { ...item, cantidad: nuevaCantidad, subtotal: item.flor.precio_unit * nuevaCantidad }
+    const nd    = datos.detalle.map(item => {
+      const c = Math.max(1, Math.round(item.cantidad * ratio))
+      return { ...item, cantidad: c, subtotal: item.flor.precio_unit * c }
     })
-    onActualizar({ tamano: nuevoTamano, detalle: nuevoDetalle, total: calcularTotal(nuevoDetalle, datos.papel, nuevoTamano, envio) })
+    onActualizar({ tamano: nuevoTamano, detalle: nd, total: recalcular(nd, nuevoTamano) })
   }
 
-  const cambiarEnvio = (opcion: OpcionEnvio) => {
-    setEnvio(opcion)
-    const totalConEnvio = calcularTotal(datos.detalle, datos.papel, datos.tamano, opcion)
-    onActualizar({ envio: opcion, total: totalConEnvio })
+  // ── Toggle accesorio ────────────────────────────────────────
+  const toggleAccesorio = (acc: Accesorio) => {
+    const ya = accesoriosSelec.some(a => a.id === acc.id)
+    const nuevos = ya
+      ? accesoriosSelec.filter(a => a.id !== acc.id)
+      : [...accesoriosSelec, acc]
+    onActualizar({ accesorios_seleccionados: nuevos, total: recalcular(undefined, undefined, nuevos) })
   }
 
+  // ── Ajustar a presupuesto ───────────────────────────────────
   const ajustarAPresupuesto = () => {
     const monto = parseFloat(presupuesto)
     if (isNaN(monto) || monto <= 0) { setMensajePresupuesto('Ingresa un presupuesto válido.'); return }
 
-    const costosFixed       = datos.papel.precio_unit + datos.tamano.precio_extra + (envio?.precio ?? 0)
-    const presupuestoFlores = monto - costosFixed
+    // El presupuesto ya incluye el margen — calculamos cuánto pueden ser las flores
+    const montoSinMargen     = monto / (1 + MARGEN)
+    const costosFixed        = (datos.tamano.papel_precio ?? 0) +
+                               accesoriosSelec.reduce((a, x) => a + x.precio_unit, 0) +
+                               costoEnvio
+    const presupuestoFlores  = montoSinMargen - costosFixed
 
-    if (presupuestoFlores <= 0) { setMensajePresupuesto('El presupuesto es menor al costo de envoltura y envío.'); return }
+    if (presupuestoFlores <= 0) { setMensajePresupuesto('Presupuesto muy bajo para este arreglo.'); return }
 
-    const totalFloresActual = datos.detalle.reduce((acc, item) => acc + item.flor.precio_unit * item.cantidad, 0)
-    if (totalFloresActual <= presupuestoFlores) { setMensajePresupuesto('✅ Tu arreglo ya cabe en ese presupuesto.'); return }
+    const totalFloresActual = datos.detalle.reduce((acc, i) => acc + i.flor.precio_unit * i.cantidad, 0)
+    if (totalFloresActual <= presupuestoFlores) { setMensajePresupuesto('✅ Ya cabe en ese presupuesto.'); return }
 
-    const factor       = presupuestoFlores / totalFloresActual
-    const nuevoDetalle = datos.detalle.map((item) => {
-      const nuevaCantidad = Math.max(1, Math.floor(item.cantidad * factor))
-      return { ...item, cantidad: nuevaCantidad, subtotal: item.flor.precio_unit * nuevaCantidad }
+    const factor = presupuestoFlores / totalFloresActual
+    const nd     = datos.detalle.map(item => {
+      const c = Math.max(1, Math.floor(item.cantidad * factor))
+      return { ...item, cantidad: c, subtotal: item.flor.precio_unit * c }
     })
-    onActualizar({ detalle: nuevoDetalle, total: calcularTotal(nuevoDetalle, datos.papel, datos.tamano, envio) })
-    setMensajePresupuesto(`✅ Ajustado. Total: $${calcularTotal(nuevoDetalle, datos.papel, datos.tamano, envio).toFixed(2)}`)
+    onActualizar({ detalle: nd, total: recalcular(nd) })
+    setMensajePresupuesto(`✅ Ajustado. Total: $${recalcular(nd).toFixed(2)}`)
   }
 
-  const subtotalFloresPrincipales = floresPrincipales.reduce(
-    (acc, item) => acc + item.flor.precio_unit * item.cantidad, 0
-  )
+  // ── Subtotales visibles ─────────────────────────────────────
+  const subtotalFloresMostrado = floresPrincipales.reduce((acc, i) => acc + i.flor.precio_unit * i.cantidad, 0)
+  const subtotalFollajeMostrado = follajes.reduce((acc, i) => acc + i.flor.precio_unit * i.cantidad, 0)
+  const subtotalAccesMostrado   = accesoriosSelec.reduce((acc, a) => acc + a.precio_unit, 0)
+  const papelMostrado           = datos.tamano.papel_precio ?? 0
 
-  // ── Render ────────────────────────────────────────────────
   return (
     <div className="w-full max-w-lg mx-auto space-y-4 pb-10">
 
-      {/* ── 1. Header ────────────────────────────────────── */}
+      {/* ── Header ──────────────────────────────────────────── */}
       <div className="flex items-center gap-4 bg-white rounded-2xl p-4 shadow-sm border border-rose-100">
-        <Image
-          src={datos.imagen_url}
-          alt="Referencia"
-          width={80}
-          height={80}
+        <Image src={datos.imagen_url} alt="Referencia" width={80} height={80}
           style={{ width: '80px', height: '80px' }}
-          className="object-cover rounded-xl flex-shrink-0"
-        />
+          className="object-cover rounded-xl flex-shrink-0" />
         <div className="flex-1 min-w-0">
           <h2 className="font-bold text-gray-800 text-lg mb-1">Tu cotización</h2>
           {datos.ia_exitosa ? (
@@ -218,7 +197,7 @@ export default function EditorCotizacion({
         </div>
       </div>
 
-      {/* ── 2. Flores principales ────────────────────────── */}
+      {/* ── Flores principales ──────────────────────────────── */}
       <section>
         <h3 className="font-semibold text-gray-700 mb-2 px-1 flex items-center gap-2">
           🌸 Flores del arreglo
@@ -226,219 +205,90 @@ export default function EditorCotizacion({
             ({floresPrincipales.length} tipo{floresPrincipales.length !== 1 ? 's' : ''})
           </span>
         </h3>
-
         {floresPrincipales.length === 0 ? (
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-center text-amber-700 text-sm">
-            No hay flores. Agrega desde el buscador de abajo ↓
+            No hay flores. Agrega desde el buscador ↓
           </div>
         ) : (
           <div className="space-y-3">
             {floresPrincipales.map((item) => {
               const indexReal = datos.detalle.indexOf(item)
               return (
-                <TarjetaFlor
-                  key={`${item.flor.id}-${indexReal}`}
-                  item={item}
+                <TarjetaFlor key={`${item.flor.id}-${indexReal}`} item={item}
                   variantes={florAgrupadas[item.flor.nombre] ?? [item.flor]}
-                  onCambiarCantidad={(nueva) => cambiarCantidad(indexReal, nueva)}
-                  onCambiarFlor={(nueva)     => cambiarFlor(indexReal, nueva)}
-                  onEliminar={()            => eliminarItem(indexReal)}
-                />
+                  onCambiarCantidad={n => cambiarCantidad(indexReal, n)}
+                  onCambiarFlor={f    => cambiarFlor(indexReal, f)}
+                  onEliminar={()      => eliminarItem(indexReal)} />
               )
             })}
           </div>
         )}
       </section>
 
-      {/* ── 3. Sección de follaje ─────────────────────────── */}
-      <section className="bg-green-50 border border-green-200 rounded-2xl overflow-hidden">
-        <div className="p-4">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="font-semibold text-green-800 flex items-center gap-2">
-              🌿 Follaje incluido
-            </h3>
-            {subtotalFollajes > 0 && (
-              <span className="text-sm font-bold text-green-700">
-                +${subtotalFollajes.toFixed(2)}
-              </span>
-            )}
-          </div>
-
-          {follajes.length > 0 ? (
-            <div className="space-y-2">
-              {follajes.map((item) => {
-                const info      = getInfoFollaje(item.flor.nombre)
-                const indexReal = datos.detalle.indexOf(item)
-                return (
-                  <div key={item.flor.id} className="bg-white rounded-xl p-3 border border-green-100">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-start gap-2 flex-1">
-                        <span className="text-xl">{info.emoji}</span>
-                        <div>
-                          <p className="font-medium text-gray-800 text-sm">
-                            {item.flor.nombre}
-                            <span className="ml-2 text-xs text-gray-400 font-normal">
-                              {item.cantidad} pza{item.cantidad !== 1 ? 's' : ''}
-                            </span>
-                          </p>
-                          <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">
-                            {info.descripcion}
-                          </p>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => eliminarItem(indexReal)}
-                        className="text-gray-300 hover:text-red-400 transition-colors text-lg leading-none flex-shrink-0"
-                      >
-                        ✕
-                      </button>
+      {/* ── Follaje ─────────────────────────────────────────── */}
+      {follajes.length > 0 && (
+        <section className="bg-green-50 border border-green-200 rounded-2xl p-4">
+          <h3 className="font-semibold text-green-800 mb-2">🌿 Follaje incluido</h3>
+          <div className="space-y-2">
+            {follajes.map(item => {
+              const indexReal = datos.detalle.indexOf(item)
+              return (
+                <div key={item.flor.id} className="bg-white rounded-xl p-3 border border-green-100 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span>🌿</span>
+                    <div>
+                      <p className="font-medium text-gray-800 text-sm">{item.flor.nombre}</p>
+                      <p className="text-xs text-gray-400">{item.cantidad} pzas</p>
                     </div>
                   </div>
-                )
-              })}
-            </div>
-          ) : (
-            /* Si la IA detectó follaje pero no está en el catálogo */
-            datos.ia_mensaje?.toLowerCase().includes('follaje') ? (
-              <div className="bg-white rounded-xl p-3 border border-green-100">
-                <div className="flex items-start gap-2">
-                  <span className="text-xl">🌿</span>
-                  <div>
-                    <p className="font-medium text-gray-800 text-sm">Follaje decorativo</p>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      {datos.ia_mensaje.replace('Follaje:', '').replace('Follaje detectado:', '').trim()}
-                    </p>
-                    <p className="text-xs text-green-600 mt-1 font-medium">
-                      El florista seleccionará el follaje más apropiado
-                    </p>
-                  </div>
+                  <button onClick={() => eliminarItem(indexReal)}
+                    className="text-gray-300 hover:text-red-400 text-lg">✕</button>
                 </div>
-              </div>
-            ) : (
-              <p className="text-sm text-green-700 opacity-70">
-                El florista incluirá follaje fresco según disponibilidad
-              </p>
-            )
-          )}
-        </div>
-      </section>
+              )
+            })}
+          </div>
+        </section>
+      )}
 
-      {/* ── 4. Buscador para agregar flores ──────────────── */}
+      {/* ── Buscador ────────────────────────────────────────── */}
       <section className="bg-white border border-rose-100 rounded-2xl p-4 shadow-sm">
         <h3 className="font-semibold text-gray-700 mb-1">➕ Agregar flor o follaje</h3>
-        <p className="text-xs text-gray-400 mb-3">
-          Busca por nombre o color — ej: &quot;Tulipán Rosa&quot; o &quot;Nube&quot;
-        </p>
-        <BuscadorFlores
-          flores={datos.catalogo.flores}
-          onAgregar={agregarFlor}
-        />
+        <p className="text-xs text-gray-400 mb-3">Busca por nombre o color</p>
+        <BuscadorFlores flores={datos.catalogo.flores} onAgregar={agregarFlor} />
       </section>
 
-      {/* ── 5. Selector de tamaño ────────────────────────── */}
-      <SelectorTamano
-        tamanos={datos.catalogo.tamanos}
-        seleccionado={datos.tamano}
-        onChange={cambiarTamano}
+      {/* ── Tamaño ──────────────────────────────────────────── */}
+      <SelectorTamano tamanos={datos.catalogo.tamanos} seleccionado={datos.tamano} onChange={cambiarTamano} />
+
+      {/* ── Accesorios ──────────────────────────────────────── */}
+      <SelectorAccesorios
+        accesorios={datos.catalogo.accesorios}
+        seleccionados={accesoriosSelec}
+        onToggle={toggleAccesorio}
       />
 
-      {/* ── 6. Envío ──────────────────────────────────────── */}
-      <SelectorEnvio
-        sucursales={datos.sucursales ?? []}
-        seleccionado={envio}
-        onSeleccionar={cambiarEnvio}
-      />
-
-      {/* ── 7. Nota extra del cliente ──────────────────────── */}
-      <section className="bg-white border border-rose-100 rounded-2xl p-4 shadow-sm">
-        <h3 className="font-semibold text-gray-700 mb-1">📝 Nota o solicitud especial</h3>
-        <p className="text-xs text-gray-400 mb-2">
-          ¿Algo especial para tu arreglo? Dedica, color extra, fecha de entrega...
-        </p>
-        <textarea
-          value={nota}
-          onChange={(e) => { setNota(e.target.value); onActualizar({ nota: e.target.value }) }}
-          placeholder="Ej: Para el 10 de mayo, con dedicatoria que diga: Para mi mamá con amor 🌸"
-          rows={3}
-          className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 focus:outline-none focus:border-rose-400 resize-none"
-        />
-      </section>
-
-      {/* ── 8. Tipo de envoltura (colapsable) ────────────── */}
+      {/* ── Ajuste por presupuesto ──────────────────────────── */}
       <section className="bg-white border border-rose-100 rounded-2xl shadow-sm overflow-hidden">
-        <button
-          onClick={() => setMostrarPapel(!mostrarPapel)}
-          className="w-full flex items-center justify-between p-4 text-left hover:bg-rose-50 transition-colors"
-        >
-          <div>
-            <h3 className="font-semibold text-gray-700">🎁 Tipo de envoltura</h3>
-            <p className="text-xs text-gray-400 mt-0.5">
-              {datos.papel.nombre}
-              {datos.papel.precio_unit > 0 ? ` · +$${datos.papel.precio_unit.toFixed(2)}` : ' · Incluida'}
-            </p>
-          </div>
-          <span className={`text-gray-400 transition-transform duration-200 ${mostrarPapel ? 'rotate-180' : ''}`}>▼</span>
-        </button>
-
-        {mostrarPapel && (
-          <div className="px-4 pb-4 space-y-2 border-t border-rose-50 pt-3">
-            {datos.catalogo.papeles.map((papel) => (
-              <label
-                key={papel.id}
-                className={`flex items-center justify-between p-3 rounded-xl border-2 cursor-pointer transition-all
-                  ${datos.papel.id === papel.id ? 'border-rose-400 bg-rose-50' : 'border-gray-100 hover:border-rose-200'}`}
-              >
-                <div className="flex items-center gap-3">
-                  <input
-                    type="radio"
-                    name="papel"
-                    value={papel.id}
-                    checked={datos.papel.id === papel.id}
-                    onChange={() => cambiarPapel(papel.id)}
-                    className="accent-rose-500 w-4 h-4"
-                  />
-                  <span className="text-sm font-medium text-gray-700">{papel.nombre}</span>
-                </div>
-                <span className={`text-sm font-semibold ${datos.papel.id === papel.id ? 'text-rose-600' : 'text-gray-400'}`}>
-                  {papel.precio_unit === 0 ? 'Gratis' : `+$${papel.precio_unit.toFixed(2)}`}
-                </span>
-              </label>
-            ))}
-          </div>
-        )}
-      </section>
-
-      {/* ── 9. Ajuste por presupuesto (colapsable) ───────── */}
-      <section className="bg-white border border-rose-100 rounded-2xl shadow-sm overflow-hidden">
-        <button
-          onClick={() => setMostrarPresupuesto(!mostrarPresupuesto)}
-          className="w-full flex items-center justify-between p-4 text-left hover:bg-rose-50 transition-colors"
-        >
+        <button onClick={() => setMostrarPresupuesto(!mostrarPresupuesto)}
+          className="w-full flex items-center justify-between p-4 text-left hover:bg-rose-50 transition-colors">
           <div>
             <h3 className="font-semibold text-gray-700">💰 Ajustar a mi presupuesto</h3>
             <p className="text-xs text-gray-400 mt-0.5">Reduce las cantidades para caber en tu monto</p>
           </div>
-          <span className={`text-gray-400 transition-transform duration-200 ${mostrarPresupuesto ? 'rotate-180' : ''}`}>▼</span>
+          <span className={`text-gray-400 transition-transform ${mostrarPresupuesto ? 'rotate-180' : ''}`}>▼</span>
         </button>
-
         {mostrarPresupuesto && (
           <div className="px-4 pb-4 border-t border-rose-50 pt-3">
             <div className="flex gap-2">
               <div className="relative flex-1">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-medium select-none">$</span>
-                <input
-                  type="number"
-                  min="1"
-                  value={presupuesto}
-                  onChange={(e) => { setPresupuesto(e.target.value); setMensajePresupuesto(null) }}
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+                <input type="number" min="1" value={presupuesto}
+                  onChange={e => { setPresupuesto(e.target.value); setMensajePresupuesto(null) }}
                   placeholder="ej. 350"
-                  className="w-full border border-gray-200 rounded-xl pl-7 pr-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:border-rose-400"
-                />
+                  className="w-full border border-gray-200 rounded-xl pl-7 pr-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:border-rose-400" />
               </div>
-              <button
-                onClick={ajustarAPresupuesto}
-                className="bg-emerald-500 hover:bg-emerald-600 text-white px-5 rounded-xl font-semibold text-sm transition-colors"
-              >
+              <button onClick={ajustarAPresupuesto}
+                className="bg-emerald-500 hover:bg-emerald-600 text-white px-5 rounded-xl font-semibold text-sm">
                 Ajustar
               </button>
             </div>
@@ -451,26 +301,35 @@ export default function EditorCotizacion({
         )}
       </section>
 
-      {/* ── 10. Resumen y total ────────────────────────────── */}
+      {/* ── Nota ────────────────────────────────────────────── */}
+      <section className="bg-white border border-rose-100 rounded-2xl p-4 shadow-sm">
+        <h3 className="font-semibold text-gray-700 mb-1">📝 Nota o solicitud especial</h3>
+        <p className="text-xs text-gray-400 mb-2">Dedicatoria, fecha de entrega, color favorito...</p>
+        <textarea value={nota}
+          onChange={e => { setNota(e.target.value); onActualizar({ nota: e.target.value }) }}
+          placeholder="Ej: Para el 10 de mayo, con dedicatoria: Para mi mamá con amor 🌸"
+          rows={3}
+          className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 focus:outline-none focus:border-rose-400 resize-none" />
+      </section>
+
+      {/* ── Resumen y total ─────────────────────────────────── */}
       <div className="bg-gradient-to-br from-rose-500 to-pink-600 rounded-2xl p-5 text-white shadow-lg">
         <h3 className="font-semibold text-rose-100 text-sm mb-3">Resumen del pedido</h3>
 
-        {/* Flores principales */}
-        {floresPrincipales.length > 0 && (
-          <div className="space-y-1 mb-2">
-            {floresPrincipales.map((item, i) => (
-              <div key={i} className="flex justify-between text-sm opacity-90">
-                <span>{item.cantidad}× {item.flor.nombre} {item.flor.color}</span>
-                <span>${(item.flor.precio_unit * item.cantidad).toFixed(2)}</span>
-              </div>
-            ))}
-          </div>
-        )}
+        {/* Flores */}
+        <div className="space-y-1 mb-2">
+          {floresPrincipales.map((item, i) => (
+            <div key={i} className="flex justify-between text-sm opacity-90">
+              <span>{item.cantidad}× {item.flor.nombre} {item.flor.color}</span>
+              <span>${(item.flor.precio_unit * item.cantidad).toFixed(2)}</span>
+            </div>
+          ))}
+        </div>
 
-        {/* Follajes */}
+        {/* Follaje */}
         {follajes.length > 0 && (
           <div className="space-y-1 mb-2">
-            <p className="text-xs text-rose-200 mt-1">Follaje:</p>
+            <p className="text-xs text-rose-200">Follaje:</p>
             {follajes.map((item, i) => (
               <div key={i} className="flex justify-between text-sm opacity-80">
                 <span>{item.flor.nombre}</span>
@@ -486,36 +345,28 @@ export default function EditorCotizacion({
         <div className="space-y-1 mb-3">
           <div className="flex justify-between text-sm opacity-80">
             <span>Subtotal flores</span>
-            <span>${subtotalFloresPrincipales.toFixed(2)}</span>
+            <span>${subtotalFloresMostrado.toFixed(2)}</span>
           </div>
-          {subtotalFollajes > 0 && (
+          {subtotalFollajeMostrado > 0 && (
             <div className="flex justify-between text-sm opacity-80">
               <span>Follaje</span>
-              <span>${subtotalFollajes.toFixed(2)}</span>
+              <span>${subtotalFollajeMostrado.toFixed(2)}</span>
             </div>
           )}
           <div className="flex justify-between text-sm opacity-80">
-            <span>Envoltura ({datos.papel.nombre})</span>
-            <span>{datos.papel.precio_unit === 0 ? 'Incluida' : `+$${datos.papel.precio_unit.toFixed(2)}`}</span>
+            <span>Envoltura ({datos.tamano.nombre})</span>
+            <span>${papelMostrado.toFixed(2)}</span>
           </div>
-          {datos.tamano.precio_extra > 0 && (
-            <div className="flex justify-between text-sm opacity-80">
-              <span>Tamaño {datos.tamano.nombre}</span>
-              <span>+${datos.tamano.precio_extra.toFixed(2)}</span>
+          {accesoriosSelec.length > 0 && accesoriosSelec.map(acc => (
+            <div key={acc.id} className="flex justify-between text-sm opacity-80">
+              <span>{acc.emoji} {acc.nombre}</span>
+              <span>+${acc.precio_unit.toFixed(2)}</span>
             </div>
-          )}
-          
-          {/* Aquí se refleja el costo de Envío en el resumen */}
-          {envio && envio.precio > 0 && (
+          ))}
+          {costoEnvio > 0 && (
             <div className="flex justify-between text-sm opacity-80">
-              <span>Envío ({envio.zona?.nombre})</span>
-              <span>+${envio.precio.toFixed(2)}</span>
-            </div>
-          )}
-          {envio?.tipo === 'sucursal' && (
-            <div className="flex justify-between text-sm opacity-80">
-              <span>Recolección en {envio.sucursal?.nombre}</span>
-              <span className="text-emerald-300 font-medium">Gratis</span>
+              <span>Envío</span>
+              <span>+${costoEnvio.toFixed(2)}</span>
             </div>
           )}
         </div>
@@ -532,23 +383,17 @@ export default function EditorCotizacion({
         </div>
       </div>
 
-      {/* ── 11. Botones ───────────────────────────────────── */}
+      {/* ── Botones ─────────────────────────────────────────── */}
       <div className="space-y-3">
-        <button
-          onClick={onAprobar}
-          className="w-full bg-green-500 hover:bg-green-600 active:bg-green-700 text-white font-bold py-4 rounded-2xl text-lg shadow-md transition-colors flex items-center justify-center gap-2"
-        >
-          <span>💬</span>
-          <span>Aprobar y pedir por WhatsApp</span>
+        <button onClick={onAprobar}
+          className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-4 rounded-2xl text-lg shadow-md transition-colors flex items-center justify-center gap-2">
+          <span>💬</span><span>Aprobar y pedir por WhatsApp</span>
         </button>
-        <button
-          onClick={onNuevaCotizacion}
-          className="w-full bg-white hover:bg-rose-50 text-rose-500 font-medium py-3 rounded-2xl border border-rose-200 transition-colors"
-        >
+        <button onClick={onNuevaCotizacion}
+          className="w-full bg-white hover:bg-rose-50 text-rose-500 font-medium py-3 rounded-2xl border border-rose-200 transition-colors">
           🔄 Hacer nueva cotización
         </button>
       </div>
-
     </div>
   )
 }
