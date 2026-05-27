@@ -52,7 +52,6 @@ export default function SelectorEnvio({
 
     if (data.encontrado) {
       setResultado(data.zona)
-      // Usamos onChange en lugar de onSeleccionar
       onChange({ tipo: 'domicilio', zona: data.zona, precio: data.zona.precio })
     } else {
       setError(data.mensaje)
@@ -60,7 +59,6 @@ export default function SelectorEnvio({
   }
 
   const elegirSucursal = (suc: Sucursal) => {
-    // Usamos onChange en lugar de onSeleccionar
     onChange({ tipo: 'sucursal', sucursal: suc, precio: 0 })
   }
 
@@ -105,12 +103,12 @@ export default function SelectorEnvio({
                 onChange={(e) => { setCp(e.target.value.replace(/\D/g, '')); setError(null); setResultado(null) }}
                 onKeyDown={(e) => e.key === 'Enter' && buscarCP()}
                 placeholder="Código postal (5 dígitos)"
-                className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-800 focus:outline-none focus:border-rose-400"
+                className="flex-1 min-w-0 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-800 focus:outline-none focus:border-rose-400"
               />
               <button
                 onClick={buscarCP}
                 disabled={buscando || cp.length < 5}
-                className="bg-rose-500 hover:bg-rose-600 disabled:bg-gray-200 text-white px-4 rounded-xl text-sm font-semibold transition-colors"
+                className="flex-shrink-0 bg-rose-500 hover:bg-rose-600 disabled:bg-gray-200 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors"
               >
                 {buscando ? '...' : 'Buscar'}
               </button>
