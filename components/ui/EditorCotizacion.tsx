@@ -8,6 +8,7 @@ import TarjetaFlor from './TarjetaFlor'
 import BuscadorFlores from './BuscadorFlores'
 import SelectorTamano from './SelectorTamano'
 import SelectorAccesorios from './SelectorAccesorios'
+import SelectorEnvio from './SelectorEnvio' // ← 1. IMPORTAMOS EL COMPONENTE
 
 const MARGEN = 0.35  // 35% oculto al cliente
 
@@ -22,7 +23,7 @@ export interface DatosCotizacion {
   papel:                PapelEnvoltura
   tamano:               TamanoRamo
   accesorios_seleccionados: Accesorio[]
-  avisos?:              AvisoSustitucion[] // ← Recibir avisos del backend
+  avisos?:              AvisoSustitucion[]
   total:                number
   nota?:                string
   envio?:               { tipo: string; zona?: { nombre: string; descripcion: string; precio: number }; sucursal?: { nombre: string; direccion: string }; precio: number } | null
@@ -82,15 +83,17 @@ export default function EditorCotizacion({
   const accesoriosSelec     = datos.accesorios_seleccionados ?? []
 
   // ── Helpers de cálculo ──────────────────────────────────────
+  // 2. ACTUALIZAMOS LA FUNCIÓN PARA QUE RECIBA EL NUEVO COSTO DE ENVÍO
   const recalcular = (
-    nuevoDetalle?:    ItemCotizacion[],
-    nuevoTamano?:     TamanoRamo,
-    nuevosAccesorios?: Accesorio[]
+    nuevoDetalle?:     ItemCotizacion[],
+    nuevoTamano?:      TamanoRamo,
+    nuevosAccesorios?: Accesorio[],
+    nuevoCostoEnvio?:  number
   ) => calcularTotal(
     nuevoDetalle     ?? datos.detalle,
     nuevoTamano      ?? datos.tamano,
     nuevosAccesorios ?? accesoriosSelec,
-    costoEnvio
+    nuevoCostoEnvio !== undefined ? nuevoCostoEnvio : costoEnvio
   )
 
   // ── Modificar flores ────────────────────────────────────────
@@ -142,6 +145,16 @@ export default function EditorCotizacion({
     onActualizar({ accesorios_seleccionados: nuevos, total: recalcular(undefined, undefined, nuevos) })
   }
 
+  // ── Cambiar Envío ───────────────────────────────────────────
+  // NUEVA FUNCIÓN: Para manejar el cambio del selector de envío
+  const cambiarEnvio = (nuevoEnvio: DatosCotizacion['envio']) => {
+    const nuevoCosto = nuevoEnvio?.precio ?? 0
+    onActualizar({ 
+      envio: nuevoEnvio, 
+      total: recalcular(undefined, undefined, undefined, nuevoCosto) 
+    })
+  }
+
   // ── Ajustar a presupuesto ───────────────────────────────────
   const ajustarAPresupuesto = () => {
     const monto = parseFloat(presupuesto)
@@ -171,7 +184,6 @@ export default function EditorCotizacion({
   // ── Subtotales visibles ─────────────────────────────────────
   const subtotalFloresMostrado = floresPrincipales.reduce((acc, i) => acc + i.flor.precio_unit * i.cantidad, 0)
   const subtotalFollajeMostrado = follajes.reduce((acc, i) => acc + i.flor.precio_unit * i.cantidad, 0)
-  const subtotalAccesMostrado   = accesoriosSelec.reduce((acc, a) => acc + a.precio_unit, 0)
   const papelMostrado           = datos.tamano.papel_precio ?? 0
 
   return (
@@ -198,7 +210,7 @@ export default function EditorCotizacion({
         </div>
       </div>
 
-      {/* ── Avisos de Sustitución (NUEVO BLOQUE) ──────────────── */}
+      {/* ── Avisos de Sustitución ─────────────────────────────── */}
       {datos.avisos && datos.avisos.length > 0 && (
         <section className="bg-amber-50 border border-amber-200 rounded-2xl p-4 shadow-sm">
           <div className="flex items-start gap-2 mb-2">
@@ -295,6 +307,21 @@ export default function EditorCotizacion({
         seleccionados={accesoriosSelec}
         onToggle={toggleAccesorio}
       />
+
+      {/* ── Envío / Entrega (3. AGREGAMOS EL COMPONENTE) ────── */}
+      <section className="bg-white border border-rose-100 rounded-2xl shadow-sm overflow-hidden">
+        <div className="p-4 border-b border-rose-50">
+           <h3 className="font-semibold text-gray-700">🚚 Método de entrega</h3>
+           <p className="text-xs text-gray-400">¿A domicilio o recoges en sucursal?</p>
+        </div>
+        <div className="p-4 bg-gray-50/50">
+          <SelectorEnvio
+            sucursales={datos.sucursales ?? []}
+            seleccionado={datos.envio ?? null}
+            onChange={cambiarEnvio}
+          />
+        </div>
+      </section>
 
       {/* ── Ajuste por presupuesto ──────────────────────────── */}
       <section className="bg-white border border-rose-100 rounded-2xl shadow-sm overflow-hidden">
@@ -393,8 +420,8 @@ export default function EditorCotizacion({
             </div>
           ))}
           {costoEnvio > 0 && (
-            <div className="flex justify-between text-sm opacity-80">
-              <span>Envío</span>
+            <div className="flex justify-between text-sm opacity-80 text-yellow-200 font-medium">
+              <span>Envío ({datos.envio?.tipo === 'domicilio' ? 'A Domicilio' : 'Sucursal'})</span>
               <span>+${costoEnvio.toFixed(2)}</span>
             </div>
           )}
