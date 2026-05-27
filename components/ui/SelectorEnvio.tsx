@@ -21,6 +21,7 @@ interface SelectorEnvioProps {
   sucursales:  Sucursal[]
   onSeleccionar: (opcion: OpcionEnvio) => void
   seleccionado?: OpcionEnvio | null
+  onChange: (nuevoEnvio: any) => void;
 }
 
 export default function SelectorEnvio({
