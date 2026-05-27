@@ -29,11 +29,21 @@ export async function obtenerCatalogo(): Promise<{
   }
 }
 
+// NUEVA FUNCIÓN NORMALIZAR: Entiende que "Girasol" = "Girasoles"
 function normalizar(texto: string): string {
-  return texto.toLowerCase()
+  let limpio = texto.toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .trim()
+
+  // Eliminar plurales comunes en español para hacer el match exacto
+  if (limpio.endsWith('es')) {
+    limpio = limpio.slice(0, -2) // Quita 'es'
+  } else if (limpio.endsWith('s')) {
+    limpio = limpio.slice(0, -1) // Quita 's'
+  }
+
+  return limpio
 }
 
 const MARGEN = 0.35
@@ -45,12 +55,12 @@ export function construirCotizacion(
   tamanoDefault: TamanoRamo
 ): Omit<Cotizacion, 'imagen_url' | 'imagen_path'> {
   const detalle: ItemCotizacion[] = []
-  const avisos: AvisoSustitucion[] = [] // Arreglo para guardar nuestras sugerencias
+  const avisos: AvisoSustitucion[] = [] 
 
   // Flor "comodín" si de plano no tenemos nada parecido a lo que detectó la IA
   const florPorDefecto = catalogo.find(f => f.nombre === 'Rosas' && f.color === 'Rojas') 
                       ?? catalogo.find(f => f.nombre === 'Rosas') 
-                      ?? catalogo[0]; // Caída segura si no hay rosas
+                      ?? catalogo[0]; 
 
   if (floresDetectadas.length > 0) {
     for (const detectada of floresDetectadas) {
@@ -73,7 +83,6 @@ export function construirCotizacion(
         florFinal = catalogo.find(f => normalizar(f.nombre) === nombreBuscado)
         
         if (florFinal) {
-           // Generar aviso: Encontramos la flor, pero no en el color que pidió
            avisos.push({
              detectado: nombreOriginalDetectado,
              motivo: 'No disponible en este color',
@@ -82,7 +91,7 @@ export function construirCotizacion(
         }
       }
 
-      // 3. Nombre parcial (ej: "Rosa" vs "Rosas")
+      // 3. Nombre parcial (ej: el usuario subió algo que contiene parte del nombre)
       if (!florFinal) {
         florFinal = catalogo.find(f =>
           normalizar(f.nombre).includes(nombreBuscado) ||
@@ -98,8 +107,7 @@ export function construirCotizacion(
       }
 
       // 4. Si la tienda NO VENDE ese tipo de flor en absoluto
-      if (!florFinal && !['gypsophila', 'nube', 'follaje', 'eucalipto', 'helecho', 'ruscus'].some(f => nombreBuscado.includes(f))) {
-         // Si no es follaje y no lo encontramos, usamos la flor comodín (Rosas)
+      if (!florFinal && !['gypsophila', 'nube', 'follaje', 'eucalipto', 'helecho', 'ruscus', 'baby', 'dolar'].some(f => nombreBuscado.includes(f))) {
          florFinal = florPorDefecto;
          if (florFinal) {
              avisos.push({
@@ -110,11 +118,8 @@ export function construirCotizacion(
          }
       }
 
-      // Si encontramos una flor (ya sea la exacta o la sugerida), la agregamos al detalle
       if (florFinal) {
-        // Verificar si ya agregamos esta misma flor para no duplicar líneas
         const indexExistente = detalle.findIndex(i => i.flor.id === florFinal?.id);
-        
         const cantidadAIncrementar = Math.max(
           1,
           Math.round((detectada.cantidad_estimada ?? 5) * tamanoDefault.multiplicador / 2)
@@ -134,7 +139,7 @@ export function construirCotizacion(
     }
   }
 
-  // Ramo default extremo (si la IA no detectó nada de nada)
+  // Ramo default extremo
   if (detalle.length === 0 && florPorDefecto) {
     detalle.push({
       flor:      florPorDefecto,
@@ -145,14 +150,16 @@ export function construirCotizacion(
 
   // Follaje automático
   const yaHayFollaje = detalle.some(i =>
-    ['gypsophila', 'nube', 'follaje', 'eucalipto', 'helecho', 'ruscus']
+    ['gypsophila', 'nube', 'follaje', 'eucalipto', 'helecho', 'ruscus', 'baby', 'dolar']
       .some(f => normalizar(i.flor.nombre).includes(f))
   )
   if (!yaHayFollaje) {
     const follaje =
+      catalogo.find(f => f.nombre === 'Baby') ??
+      catalogo.find(f => f.nombre === 'Dólar') ??
       catalogo.find(f => f.nombre === 'Nube') ??
-      catalogo.find(f => f.nombre === 'Gypsophila') ??
-      catalogo.find(f => f.nombre === 'Follaje Ruscus')
+      catalogo.find(f => normalizar(f.nombre).includes('follaje'))
+      
     if (follaje) {
       detalle.push({ flor: follaje, cantidad: 3, subtotal: follaje.precio_unit * 3 })
     }
@@ -164,7 +171,7 @@ export function construirCotizacion(
   const subtotalBase   = subtotalFlores + papelPrecio
   const total          = Math.ceil(subtotalBase * (1 + MARGEN))
 
-  // Eliminar avisos duplicados (por si la IA detectó 3 Lirios Amarillos separados)
+  // Eliminar avisos duplicados
   const avisosUnicos = avisos.filter((aviso, index, self) =>
     index === self.findIndex((t) => (
       t.detectado === aviso.detectado && t.sugerencia === aviso.sugerencia
@@ -176,7 +183,7 @@ export function construirCotizacion(
     papel:  papelDefault,
     total,
     estado: 'borrador',
-    avisos: avisosUnicos // Retornamos los avisos para que los vea el UI
+    avisos: avisosUnicos 
   }
 }
 
