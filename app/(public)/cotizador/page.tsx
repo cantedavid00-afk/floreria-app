@@ -75,10 +75,10 @@ export default function CotizadorPage() {
       } catch (err) {
         console.error('Error tamaños:', err)
         const rescate: TamanoRamo[] = [
-          { id: '1', clave: 'S',  nombre: 'Pequeño',      flores_base: 12,  precio_extra: 0,   multiplicador: 1,   descripcion: 'Ideal para detalle'  },
-          { id: '2', clave: 'M',  nombre: 'Mediano',      flores_base: 24,  precio_extra: 150, multiplicador: 1.5, descripcion: 'Tamaño estándar'     },
-          { id: '3', clave: 'L',  nombre: 'Grande',       flores_base: 50,  precio_extra: 300, multiplicador: 2,   descripcion: 'Para impresionar'    },
-          { id: '4', clave: 'XL', nombre: 'Extra Grande', flores_base: 100, precio_extra: 600, multiplicador: 3,   descripcion: 'Máximo impacto'      },
+          { id: '1', clave: 'S',  nombre: 'Pequeño',      flores_base: 12,  precio_extra: 0,   multiplicador: 1,   descripcion: 'Ideal para detalle', papel_precio: 0 },
+          { id: '2', clave: 'M',  nombre: 'Mediano',      flores_base: 24,  precio_extra: 150, multiplicador: 1.5, descripcion: 'Tamaño estándar',    papel_precio: 0 },
+          { id: '3', clave: 'L',  nombre: 'Grande',       flores_base: 50,  precio_extra: 300, multiplicador: 2,   descripcion: 'Para impresionar',   papel_precio: 0 },
+          { id: '4', clave: 'XL', nombre: 'Extra Grande', flores_base: 100, precio_extra: 600, multiplicador: 3,   descripcion: 'Máximo impacto',     papel_precio: 0 },
         ]
         setTamanos(rescate)
         setTamanoElegido(rescate[1])
