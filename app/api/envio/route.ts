@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 
-// ── GET: Cargar sucursales y zonas iniciales
+// ── GET: Cargar datos iniciales para la interfaz
 export async function GET() {
   try {
     const [{ data: zonas }, { data: sucursales }] = await Promise.all([
@@ -15,12 +15,12 @@ export async function GET() {
       sucursales: sucursales ?? [] 
     });
   } catch (error) {
-    console.error('Error en GET de envío:', error);
-    return NextResponse.json({ error: 'Error al cargar datos iniciales' }, { status: 500 });
+    console.error('Error en GET:', error);
+    return NextResponse.json({ error: 'Error al cargar datos' }, { status: 500 });
   }
 }
 
-// ── POST: Buscar CP con normalización de formato
+// ── POST: Buscar CP y obtener precio automáticamente
 export async function POST(req: NextRequest) {
   try {
     const { codigo_postal } = await req.json();
@@ -29,14 +29,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Falta código postal.' }, { status: 400 });
     }
 
-    // Normalizamos: trim elimina espacios, padStart asegura 5 dígitos (ej: 90300)
+    // Normalizamos el CP a 5 dígitos
     const cpString = String(codigo_postal).trim().padStart(5, '0');
 
-    // 1. Buscar CP en la tabla maestra
+    // 1. Buscar CP: .limit(1) soluciona el problema de múltiples colonias por CP
     const { data: cpData, error: cpError } = await supabaseAdmin
       .from('catalogo_cp')
       .select('cp, asentamiento, zona_id')
       .eq('cp', cpString)
+      .limit(1)
       .maybeSingle();
 
     if (cpError || !cpData) {
@@ -46,7 +47,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 2. Buscar Zona manualmente usando el ID obtenido
+    // 2. Verificar que tenga zona asignada
     if (!cpData.zona_id) {
       return NextResponse.json({ 
         encontrado: false, 
@@ -54,6 +55,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // 3. Buscar la configuración de precio en zonas_envio
     const { data: zonaData, error: zonaError } = await supabaseAdmin
       .from('zonas_envio')
       .select('*')
@@ -64,7 +66,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ encontrado: false, mensaje: 'Zona no encontrada.' });
     }
 
-    // 3. Respuesta exitosa
+    // 4. Respuesta exitosa
     return NextResponse.json({
       encontrado: true,
       zona: {
