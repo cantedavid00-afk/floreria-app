@@ -45,16 +45,19 @@ interface EditorCotizacionProps {
 
 // ── Total con margen oculto ───────────────────────────────────
 const calcularTotal = (
-  detalle:      ItemCotizacion[],
-  tamano:       TamanoRamo,
-  accesorios:   Accesorio[],
-  costoEnvio:   number = 0
+  detalle:    ItemCotizacion[],
+  tamano:     TamanoRamo,
+  accesorios: Accesorio[],
+  costoEnvio: number = 0
 ) => {
   const subtotalFlores     = detalle.reduce((acc, i) => acc + i.flor.precio_unit * i.cantidad, 0)
   const subtotalAccesorios = accesorios.reduce((acc, a) => acc + a.precio_unit, 0)
   const papelPrecio        = tamano.papel_precio ?? 0
-  const subtotalBase       = subtotalFlores + subtotalAccesorios + papelPrecio + costoEnvio
-  return Math.ceil(subtotalBase * (1 + MARGEN))  // redondear hacia arriba
+  // Solo flores + accesorios + papel entran al margen
+  const subtotalBase       = subtotalFlores + subtotalAccesorios + papelPrecio
+  const conMargen          = Math.ceil(subtotalBase * (1 + MARGEN))
+  // El envío se suma después, sin margen
+  return conMargen + costoEnvio
 }
 
 const agruparPorNombre = (flores: Flor[]): Record<string, Flor[]> =>
