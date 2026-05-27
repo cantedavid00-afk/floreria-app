@@ -1,3 +1,4 @@
+// app/api/cotizar/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { detectarFlores } from '@/lib/huggingface'
@@ -21,17 +22,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Solo JPG, PNG o WEBP.' }, { status: 400 })
     }
     
-    // Nota: El texto de error dice 5 MB, pero el cálculo matemático (10 * 1024 * 1024) permite 10 MB. 
-    // Lo dejé igual, pero puedes ajustarlo a 5 * 1024 * 1024 si quieres ser estricto con los 5 MB.
     if (archivo.size > 10 * 1024 * 1024) {
-      return NextResponse.json({ error: 'La imagen no debe superar 5 MB.' }, { status: 400 })
+      return NextResponse.json({ error: 'La imagen no debe superar 10 MB.' }, { status: 400 })
     }
 
     const buffer      = await archivo.arrayBuffer()
     const extension   = archivo.name.split('.').pop() ?? 'jpg'
     const rutaArchivo = `cotizaciones/${uuidv4()}.${extension}`
 
-    // Subir imagen original a Storage
+    // 1. Subir imagen a Storage
     const { error: errorStorage } = await supabaseAdmin.storage
       .from('imagenes-cotizaciones')
       .upload(rutaArchivo, buffer, { contentType: archivo.type, upsert: false })
@@ -45,16 +44,18 @@ export async function POST(req: NextRequest) {
       .from('imagenes-cotizaciones')
       .getPublicUrl(rutaArchivo)
 
-    // Llamar a la IA
-    const resultadoIA = await detectarFlores(buffer, 55000)
-
-    // Obtener catálogo completo usando la función de lib/cotizador.ts
-    const { flores, papeles, tamanos, accesorios } = await obtenerCatalogo()
+    // 2. OBTENER CATÁLOGO PRIMERO (Para enviarlo a la IA)
+    const catalogo = await obtenerCatalogo()
+    const { flores, papeles, tamanos, accesorios } = catalogo
 
     if (flores.length === 0) {
-      return NextResponse.json({ error: 'No hay flores en el catálogo.' }, { status: 500 })
+      return NextResponse.json({ error: 'No hay flores disponibles en el catálogo.' }, { status: 500 })
     }
 
+    // 3. LLAMAR A LA IA PASÁNDOLE EL CATÁLOGO ACTUAL
+    const resultadoIA = await detectarFlores(buffer, flores)
+
+    // 4. Lógica de selección de tamaño y papel
     const tamanoElegido =
       tamanos.find((t) => t.id === tamanoId) ??
       tamanos.find((t) => t.clave === 'M') ??
@@ -63,6 +64,7 @@ export async function POST(req: NextRequest) {
     const papelDefault =
       papeles.find((p) => p.nombre === 'Kraft Natural') ?? papeles[0]
 
+    // 5. Construir cotización (esto ahora incluye los 'avisos' de sustitución)
     const cotizacionBase = construirCotizacion(
       resultadoIA.flores_detectadas,
       flores,
@@ -70,6 +72,7 @@ export async function POST(req: NextRequest) {
       tamanoElegido
     )
 
+    // 6. Guardar en BD
     const { data: guardada } = await supabaseAdmin
       .from('cotizaciones')
       .insert({
@@ -83,6 +86,7 @@ export async function POST(req: NextRequest) {
       .select()
       .single()
 
+    // 7. Retornar respuesta con todos los datos y avisos
     return NextResponse.json({
       ok:            true,
       cotizacion_id: guardada?.id ?? null,
@@ -90,9 +94,10 @@ export async function POST(req: NextRequest) {
       imagen_path:   rutaArchivo,
       ia_exitosa:    resultadoIA.exitoso,
       ia_mensaje:    resultadoIA.mensaje_debug ?? null,
+      avisos:        cotizacionBase.avisos, // <--- Enviamos los avisos de sustitución al frontend
       ...cotizacionBase,
       tamano:        tamanoElegido,
-      catalogo:      { flores, papeles, tamanos, accesorios }, // Accesorios integrados al retorno
+      catalogo:      { flores, papeles, tamanos, accesorios },
     })
 
   } catch (error) {
