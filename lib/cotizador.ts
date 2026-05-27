@@ -1,7 +1,7 @@
-// lib/cotizador.ts  (reemplaza todo el archivo)
+// lib/cotizador.ts
 import { supabaseAdmin } from './supabase'
 import type { FloresDetectada } from './huggingface'
-import type { Cotizacion, Flor, ItemCotizacion, PapelEnvoltura } from '@/types'
+import type { Cotizacion, Flor, ItemCotizacion, PapelEnvoltura, Accesorio } from '@/types'
 
 export interface TamanoRamo {
   id: string
@@ -11,34 +11,43 @@ export interface TamanoRamo {
   multiplicador: number
   flores_base: number
   precio_extra: number
+  papel_precio: number
 }
 
 export async function obtenerCatalogo(): Promise<{
-  flores: Flor[]
-  papeles: PapelEnvoltura[]
-  tamanos: TamanoRamo[]
+  flores:     Flor[]
+  papeles:    PapelEnvoltura[]
+  tamanos:    TamanoRamo[]
+  accesorios: Accesorio[]
 }> {
-  const [{ data: flores }, { data: papeles }, { data: tamanos }] =
-    await Promise.all([
-      supabaseAdmin.from('flores').select('*').eq('disponible', true).order('nombre'),
-      supabaseAdmin.from('papel_envoltura').select('*').eq('disponible', true).order('nombre'),
-      supabaseAdmin.from('tamanos_ramo').select('*').order('multiplicador'),
-    ])
+  const [
+    { data: flores },
+    { data: papeles },
+    { data: tamanos },
+    { data: accesorios },
+  ] = await Promise.all([
+    supabaseAdmin.from('flores').select('*').eq('disponible', true).order('nombre'),
+    supabaseAdmin.from('papel_envoltura').select('*').eq('disponible', true).order('nombre'),
+    supabaseAdmin.from('tamanos_ramo').select('*').order('multiplicador'),
+    supabaseAdmin.from('accesorios').select('*').eq('disponible', true).order('nombre'),
+  ])
 
   return {
-    flores:   flores  ?? [],
-    papeles:  papeles ?? [],
-    tamanos:  tamanos ?? [],
+    flores:     flores     ?? [],
+    papeles:    papeles    ?? [],
+    tamanos:    tamanos    ?? [],
+    accesorios: accesorios ?? [],
   }
 }
 
 function normalizar(texto: string): string {
-  return texto
-    .toLowerCase()
+  return texto.toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .trim()
 }
+
+const MARGEN = 0.35
 
 export function construirCotizacion(
   floresDetectadas: FloresDetectada[],
@@ -53,33 +62,28 @@ export function construirCotizacion(
       const nombreBuscado = normalizar(detectada.nombre_es)
       const colorBuscado  = normalizar(detectada.color ?? '')
 
-      console.log(`[Cotizador] Buscando: "${nombreBuscado}" color "${colorBuscado}"`)
-
       // 1. Match exacto nombre + color
       let florEnBD = colorBuscado
-        ? catalogo.find((f) =>
+        ? catalogo.find(f =>
             normalizar(f.nombre) === nombreBuscado &&
             normalizar(f.color)  === colorBuscado
           )
         : undefined
 
-      // 2. Solo nombre (primer resultado disponible)
+      // 2. Solo por nombre
       if (!florEnBD) {
-        florEnBD = catalogo.find((f) =>
-          normalizar(f.nombre) === nombreBuscado
-        )
+        florEnBD = catalogo.find(f => normalizar(f.nombre) === nombreBuscado)
       }
 
       // 3. Nombre parcial
       if (!florEnBD) {
-        florEnBD = catalogo.find((f) =>
+        florEnBD = catalogo.find(f =>
           normalizar(f.nombre).includes(nombreBuscado) ||
           nombreBuscado.includes(normalizar(f.nombre))
         )
       }
 
       if (florEnBD) {
-        console.log(`[Cotizador] ✅ Match: ${florEnBD.nombre} ${florEnBD.color}`)
         const cantidad = Math.max(
           1,
           Math.round((detectada.cantidad_estimada ?? 5) * tamanoDefault.multiplicador / 2)
@@ -89,16 +93,14 @@ export function construirCotizacion(
           cantidad,
           subtotal: florEnBD.precio_unit * cantidad,
         })
-      } else {
-        console.warn(`[Cotizador] ❌ No encontrado: "${detectada.nombre_es}" ${colorBuscado}`)
       }
     }
   }
 
-  // Ramo default si no detectó nada
+  // Ramo default
   if (detalle.length === 0) {
-    const rosa = catalogo.find((f) => f.nombre === 'Rosa' && f.color === 'Rosa')
-      ?? catalogo.find((f) => f.nombre === 'Rosa')
+    const rosa = catalogo.find(f => f.nombre === 'Rosa' && f.color === 'Rosa')
+      ?? catalogo.find(f => f.nombre === 'Rosa')
     if (rosa) {
       detalle.push({
         flor:     rosa,
@@ -108,34 +110,44 @@ export function construirCotizacion(
     }
   }
 
-  // Follaje automático si no viene detectado
-  const yaHayFollaje = detalle.some((i) =>
-    ['gypsophila', 'follaje', 'eucalipto', 'helecho', 'ruscus'].some((f) =>
-      normalizar(i.flor.nombre).includes(f)
-    )
+  // Follaje automático
+  const yaHayFollaje = detalle.some(i =>
+    ['gypsophila', 'nube', 'follaje', 'eucalipto', 'helecho', 'ruscus']
+      .some(f => normalizar(i.flor.nombre).includes(f))
   )
   if (!yaHayFollaje) {
     const follaje =
-      catalogo.find((f) => f.nombre === 'Gypsophila') ??
-      catalogo.find((f) => f.nombre === 'Follaje Ruscus')
+      catalogo.find(f => f.nombre === 'Nube') ??
+      catalogo.find(f => f.nombre === 'Gypsophila') ??
+      catalogo.find(f => f.nombre === 'Follaje Ruscus')
     if (follaje) {
       detalle.push({ flor: follaje, cantidad: 3, subtotal: follaje.precio_unit * 3 })
     }
   }
 
+  // Calcular total con margen oculto
   const subtotalFlores = detalle.reduce((acc, i) => acc + i.subtotal, 0)
-  const total = subtotalFlores + papelDefault.precio_unit + tamanoDefault.precio_extra
+  const papelPrecio    = tamanoDefault.papel_precio ?? 0
+  const subtotalBase   = subtotalFlores + papelPrecio
+  const total          = Math.ceil(subtotalBase * (1 + MARGEN))
 
-  return { detalle, papel: papelDefault, total, estado: 'borrador' }
+  return {
+    detalle,
+    papel:  papelDefault,
+    total,
+    estado: 'borrador',
+  }
 }
 
 export function recalcularTotal(
-  detalle: ItemCotizacion[],
-  papel: PapelEnvoltura,
-  precioExtraTamano: number = 0
+  detalle:    ItemCotizacion[],
+  papel:      PapelEnvoltura,
+  tamano:     TamanoRamo,
+  accesorios: Accesorio[] = []
 ): number {
-  const subtotalFlores = detalle.reduce(
-    (acc, item) => acc + item.flor.precio_unit * item.cantidad, 0
-  )
-  return subtotalFlores + papel.precio_unit + precioExtraTamano
+  const subtotalFlores     = detalle.reduce((acc, i) => acc + i.flor.precio_unit * i.cantidad, 0)
+  const subtotalAccesorios = accesorios.reduce((acc, a) => acc + a.precio_unit, 0)
+  const papelPrecio        = tamano.papel_precio ?? 0
+  const subtotalBase       = subtotalFlores + subtotalAccesorios + papelPrecio
+  return Math.ceil(subtotalBase * (1 + MARGEN))
 }
