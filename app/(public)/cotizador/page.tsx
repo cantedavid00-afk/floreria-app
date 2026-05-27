@@ -12,7 +12,7 @@ type Paso = 'subir' | 'procesando' | 'editar'
 
 function IndicadorPasos({ paso }: { paso: Paso }) {
   const pasos: { key: Paso; label: string }[] = [
-    { key: 'subir',      label: '1. Foto'     },
+    { key: 'subir',      label: '1. Foto'      },
     { key: 'procesando', label: '2. Análisis'  },
     { key: 'editar',     label: '3. Ajustar'   },
   ]
@@ -55,12 +55,12 @@ const esFollaje = (nombre: string) =>
   FOLLAJE_KEYS.some(f => nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(f))
 
 export default function CotizadorPage() {
-  const [paso,           setPaso]           = useState<Paso>('subir')
-  const [datos,          setDatos]          = useState<DatosCotizacion | null>(null)
-  const [errorGlobal,    setErrorGlobal]    = useState<string | null>(null)
-  const [tamanos,        setTamanos]        = useState<TamanoRamo[]>([])
-  const [tamanoElegido,  setTamanoElegido]  = useState<TamanoRamo | null>(null)
-  const [cargandoTamanos,setCargandoTamanos]= useState(true)
+  const [paso,            setPaso]            = useState<Paso>('subir')
+  const [datos,           setDatos]           = useState<DatosCotizacion | null>(null)
+  const [errorGlobal,     setErrorGlobal]     = useState<string | null>(null)
+  const [tamanos,         setTamanos]         = useState<TamanoRamo[]>([])
+  const [tamanoElegido,   setTamanoElegido]   = useState<TamanoRamo | null>(null)
+  const [cargandoTamanos, setCargandoTamanos] = useState(true)
 
   useEffect(() => {
     const cargarTamanos = async () => {
@@ -76,9 +76,9 @@ export default function CotizadorPage() {
         console.error('Error tamaños:', err)
         const rescate: TamanoRamo[] = [
           { id: '1', clave: 'S',  nombre: 'Pequeño',      flores_base: 12,  precio_extra: 0,   multiplicador: 1,   descripcion: 'Ideal para detalle'  },
-          { id: '2', clave: 'M',  nombre: 'Mediano',       flores_base: 24,  precio_extra: 150, multiplicador: 1.5, descripcion: 'Tamaño estándar'     },
-          { id: '3', clave: 'L',  nombre: 'Grande',        flores_base: 50,  precio_extra: 300, multiplicador: 2,   descripcion: 'Para impresionar'    },
-          { id: '4', clave: 'XL', nombre: 'Extra Grande',  flores_base: 100, precio_extra: 600, multiplicador: 3,   descripcion: 'Máximo impacto'      },
+          { id: '2', clave: 'M',  nombre: 'Mediano',      flores_base: 24,  precio_extra: 150, multiplicador: 1.5, descripcion: 'Tamaño estándar'     },
+          { id: '3', clave: 'L',  nombre: 'Grande',       flores_base: 50,  precio_extra: 300, multiplicador: 2,   descripcion: 'Para impresionar'    },
+          { id: '4', clave: 'XL', nombre: 'Extra Grande', flores_base: 100, precio_extra: 600, multiplicador: 3,   descripcion: 'Máximo impacto'      },
         ]
         setTamanos(rescate)
         setTamanoElegido(rescate[1])
@@ -117,10 +117,12 @@ export default function CotizadorPage() {
         tamano:      json.tamano    as TamanoRamo,
         total:       json.total,
         sucursales:  envioData.sucursales ?? [],
+        accesorios_seleccionados: [],
         catalogo: {
-          flores:  json.catalogo.flores,
-          papeles: json.catalogo.papeles,
-          tamanos: json.catalogo.tamanos,
+          flores:     json.catalogo.flores,
+          papeles:    json.catalogo.papeles,
+          tamanos:    json.catalogo.tamanos,
+          accesorios: json.catalogo.accesorios ?? [],
         },
       })
       setPaso('editar')
@@ -152,6 +154,12 @@ export default function CotizadorPage() {
       ? follajes.map(item => `   • ${item.flor.nombre}`).join('\n')
       : null
 
+    // Sección de accesorios
+    const accesorios = datos.accesorios_seleccionados ?? []
+    const lineasAccesorios = accesorios.length > 0
+      ? accesorios.map(a => `   ${a.emoji} ${a.nombre}: $${a.precio_unit.toFixed(2)}`).join('\n')
+      : null
+
     // Sección de entrega
     let seccionEntrega = '📦 *Entrega:* Por confirmar con el negocio'
     if (datos.envio?.tipo === 'domicilio') {
@@ -170,13 +178,14 @@ export default function CotizadorPage() {
     }
 
     // Calcular subtotales
-    const subtotalFlores  = floresPrincipales.reduce((acc, i) => acc + i.flor.precio_unit * i.cantidad, 0)
-    const subtotalFollaje = follajes.reduce((acc, i) => acc + i.flor.precio_unit * i.cantidad, 0)
-    const costoEnvio      = datos.envio?.precio ?? 0
+    const subtotalFlores     = floresPrincipales.reduce((acc, i) => acc + i.flor.precio_unit * i.cantidad, 0)
+    const subtotalFollaje    = follajes.reduce((acc, i) => acc + i.flor.precio_unit * i.cantidad, 0)
+    const subtotalAccesorios = accesorios.reduce((acc, a) => acc + a.precio_unit, 0)
+    const costoEnvio         = datos.envio?.precio ?? 0
 
     // Construir mensaje completo
     const mensaje = [
-      '🌸 *NUEVO PEDIDO — Florería Bella*',
+      '🌸 *NUEVO PEDIDO — Florería RoCé*',
       '━━━━━━━━━━━━━━━━━━━━━━━━',
       '',
       '🌺 *Flores del arreglo:*',
@@ -184,6 +193,9 @@ export default function CotizadorPage() {
       '',
       lineasFollaje
         ? `🌿 *Follaje incluido:*\n${lineasFollaje}\n`
+        : '',
+      lineasAccesorios 
+        ? `🎀 *Accesorios:*\n${lineasAccesorios}\n` 
         : '',
       `🎁 *Envoltura:* ${datos.papel?.nombre ?? 'Por definir'}`,
       `📐 *Tamaño:* ${datos.tamano?.nombre ?? 'Por definir'}`,
@@ -203,6 +215,9 @@ export default function CotizadorPage() {
         : '',
       datos.tamano?.precio_extra > 0
         ? `   Tamaño (${datos.tamano.nombre}): $${datos.tamano.precio_extra.toFixed(2)}`
+        : '',
+      subtotalAccesorios > 0 
+        ? `   Accesorios: $${subtotalAccesorios.toFixed(2)}` 
         : '',
       costoEnvio > 0
         ? `   Envío: $${costoEnvio.toFixed(2)}`
