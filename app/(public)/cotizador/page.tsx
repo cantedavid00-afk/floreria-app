@@ -133,115 +133,58 @@ export default function CotizadorPage() {
     }
   }
 
-  const actualizarCotizacion = (cambios: Partial<DatosCotizacion>) => {
-    setDatos((prev) => (prev ? { ...prev, ...cambios } : null))
-  }
-
-  // ── WhatsApp con TODOS los detalles ──────────────────────────
   const aprobarCotizacion = () => {
     if (!datos) return
 
-    // Separar flores principales de follajes
+    // 1. Filtrado de flores
     const floresPrincipales = datos.detalle.filter(item => !esFollaje(item.flor.nombre))
-    const follajes          = datos.detalle.filter(item =>  esFollaje(item.flor.nombre))
+    const follajes = datos.detalle.filter(item => esFollaje(item.flor.nombre))
 
-    const lineasFlores = floresPrincipales.length > 0
-      ? floresPrincipales.map(item =>
-          `   • ${item.cantidad}x ${item.flor.nombre} ${item.flor.color} — $${(item.flor.precio_unit * item.cantidad).toFixed(2)}`
-        ).join('\n')
-      : '   • Sin especificar'
+    // 2. Construcción de secciones
+    const lineasFlores = floresPrincipales.map(i => `• ${i.cantidad}x ${i.flor.nombre} (${i.flor.color}) — $${(i.flor.precio_unit * i.cantidad).toFixed(2)}`).join('\n')
+    const lineasAccesorios = (datos.accesorios_seleccionados ?? []).map(a => `• ${a.nombre} — $${a.precio_unit.toFixed(2)}`).join('\n')
+    
+    // 3. Lógica de entrega
+    const entrega = datos.envio?.tipo === 'domicilio' 
+      ? `🏠 *Envío a domicilio*\n   Zona: ${datos.envio.zona?.nombre} ($${datos.envio.precio.toFixed(2)})`
+      : `🏪 *Recolección en tienda*\n   ${datos.envio?.sucursal?.nombre ?? 'Sucursal'}`
 
-    const lineasFollaje = follajes.length > 0
-      ? follajes.map(item => `   • ${item.flor.nombre}`).join('\n')
-      : null
+    // 4. Cálculo de costos dinámico
+    const subtotalFlores = floresPrincipales.reduce((acc, i) => acc + (i.flor.precio_unit * i.cantidad), 0)
+    const subtotalAccesorios = (datos.accesorios_seleccionados ?? []).reduce((acc, a) => acc + a.precio_unit, 0)
+    const precioEnvoltura = datos.papel?.precio_unit ?? 0
+    const costoEnvio = datos.envio?.precio ?? 0
 
-    // Sección de accesorios
-    const accesorios = datos.accesorios_seleccionados ?? []
-    const lineasAccesorios = accesorios.length > 0
-      ? accesorios.map(a => `   ${a.emoji} ${a.nombre}: $${a.precio_unit.toFixed(2)}`).join('\n')
-      : null
-
-    // Sección de entrega
-    let seccionEntrega = '📦 *Entrega:* Por confirmar con el negocio'
-    if (datos.envio?.tipo === 'domicilio') {
-      seccionEntrega = [
-        '🏠 *Envío a domicilio*',
-        `   Zona: ${datos.envio.zona?.nombre}`,
-        `   Descripción: ${datos.envio.zona?.descripcion}`,
-        `   Costo de envío: $${datos.envio.precio.toFixed(2)} MXN`,
-      ].join('\n')
-    } else if (datos.envio?.tipo === 'sucursal') {
-      seccionEntrega = [
-        '🏪 *Recolección en tienda* (Sin costo)',
-        `   ${datos.envio.sucursal?.nombre}`,
-        `   ${datos.envio.sucursal?.direccion}`,
-      ].join('\n')
-    }
-
-    // Calcular subtotales
-    const subtotalFlores     = floresPrincipales.reduce((acc, i) => acc + i.flor.precio_unit * i.cantidad, 0)
-    const subtotalFollaje    = follajes.reduce((acc, i) => acc + i.flor.precio_unit * i.cantidad, 0)
-    const subtotalAccesorios = accesorios.reduce((acc, a) => acc + a.precio_unit, 0)
-    const costoEnvio         = datos.envio?.precio ?? 0
-
-    // Construir mensaje completo
+    // 5. Formato final del mensaje
     const mensaje = [
       '🌸 *NUEVO PEDIDO — Florería RoCé*',
       '━━━━━━━━━━━━━━━━━━━━━━━━',
-      '',
-      '🌺 *Flores del arreglo:*',
+      '🌺 *Flores:',
       lineasFlores,
       '',
-      lineasFollaje
-        ? `🌿 *Follaje incluido:*\n${lineasFollaje}\n`
-        : '',
-      lineasAccesorios 
-        ? `🎀 *Accesorios:*\n${lineasAccesorios}\n` 
-        : '',
-      `🎁 *Envoltura:* ${datos.papel?.nombre ?? 'Por definir'}`,
-      `📐 *Tamaño:* ${datos.tamano?.nombre ?? 'Por definir'}`,
+      datos.papel ? `🎁 *Envoltura:* ${datos.papel.nombre}` : '',
+      datos.tamano ? `📐 *Tamaño:* ${datos.tamano.nombre}` : '',
       '',
-      '━━━━━━━━━━━━━━━━━━━━━━━━',
-      seccionEntrega,
-      '━━━━━━━━━━━━━━━━━━━━━━━━',
+      datos.accesorios_seleccionados?.length > 0 ? `🎀 *Accesorios:*\n${lineasAccesorios}` : '',
       '',
-      datos.nota
-        ? `📝 *Nota del cliente:*\n   ${datos.nota}\n`
-        : '',
-      '💰 *Desglose del costo:*',
+      entrega,
+      datos.nota ? `📝 *Nota:* ${datos.nota}` : '',
+      '━━━━━━━━━━━━━━━━━━━━━━━━',
+      '💰 *Desglose:',
       `   Flores: $${subtotalFlores.toFixed(2)}`,
-      subtotalFollaje > 0 ? `   Follaje: $${subtotalFollaje.toFixed(2)}` : '',
-      datos.papel?.precio_unit > 0
-        ? `   Envoltura: $${datos.papel.precio_unit.toFixed(2)}`
-        : '',
-      datos.tamano?.precio_extra > 0
-        ? `   Tamaño (${datos.tamano.nombre}): $${datos.tamano.precio_extra.toFixed(2)}`
-        : '',
-      subtotalAccesorios > 0 
-        ? `   Accesorios: $${subtotalAccesorios.toFixed(2)}` 
-        : '',
-      costoEnvio > 0
-        ? `   Envío: $${costoEnvio.toFixed(2)}`
-        : '',
-      '',
+      precioEnvoltura > 0 ? `   Envoltura: $${precioEnvoltura.toFixed(2)}` : '',
+      subtotalAccesorios > 0 ? `   Accesorios: $${subtotalAccesorios.toFixed(2)}` : '',
+      costoEnvio > 0 ? `   Envío: $${costoEnvio.toFixed(2)}` : '',
+      '━━━━━━━━━━━━━━━━━━━━━━━━',
       `💵 *TOTAL ESTIMADO: $${datos.total.toFixed(2)} MXN*`,
       '_Precio sujeto a confirmación_',
       '',
-      '━━━━━━━━━━━━━━━━━━━━━━━━',
       '🖼️ *Imagen de referencia:*',
-      datos.imagen_url,
-      '',
-      `🕐 ${new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' })}`,
-      `🔖 Pedido ID: ${datos.id ?? 'sin-id'}`,
-    ]
-      .filter(line => line !== null && line !== '')
-      .join('\n')
+      datos.imagen_url
+    ].filter(line => line !== '').join('\n')
 
     const numero = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? ''
-    window.open(
-      `https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}`,
-      '_blank'
-    )
+    window.open(`https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}`, '_blank')
   }
 
   const nuevaCotizacion = () => {
