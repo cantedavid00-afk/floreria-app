@@ -21,6 +21,15 @@ export interface TamanoRamo {
   multiplicador: number
   flores_base: number
   precio_extra: number
+  papel_precio: number   // ← precio de envoltura por tamaño
+}
+
+export interface Accesorio {
+  id: string
+  nombre: string
+  emoji: string
+  precio_unit: number
+  disponible: boolean
 }
 
 export interface ItemCotizacion {
@@ -36,7 +45,7 @@ export interface Cotizacion {
   detalle: ItemCotizacion[]
   papel?: PapelEnvoltura
   tamano?: TamanoRamo
-  follaje_descripcion?: string   // ← NUEVO: texto del follaje detectado por IA
+  accesorios_seleccionados?: Accesorio[]
   total: number
   estado: 'borrador' | 'aprobada' | 'enviada'
   cliente_nombre?: string
