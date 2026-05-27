@@ -3,7 +3,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation' // ← Importación agregada para redirigir
+import { useRouter } from 'next/navigation'
 
 // ── Tipos ─────────────────────────────────────────────────────
 interface Flor {
@@ -17,17 +17,23 @@ interface Tamano {
   id: string; clave: string; nombre: string
   flores_base: number; precio_extra: number; descripcion: string
 }
+interface Accesorio {
+  id: string; nombre: string; emoji: string
+  precio_unit: number; disponible: boolean
+}
 
-type Tab = 'flores' | 'papel' | 'tamanos'
+type Tab = 'flores' | 'papel' | 'tamanos' | 'accesorios'
 
 // ── Componente ────────────────────────────────────────────────
 export default function AdminPage() {
-  const router = useRouter() // ← Hook para redireccionar al cerrar sesión
+  const router = useRouter()
 
-  const [tab,     setTab]     = useState<Tab>('flores')
-  const [flores,  setFlores]  = useState<Flor[]>([])
-  const [papeles, setPapeles] = useState<Papel[]>([])
-  const [tamanos, setTamanos] = useState<Tamano[]>([])
+  const [tab,      setTab]      = useState<Tab>('flores')
+  const [flores,   setFlores]   = useState<Flor[]>([])
+  const [papeles,  setPapeles]  = useState<Papel[]>([])
+  const [tamanos,  setTamanos]  = useState<Tamano[]>([])
+  const [accesorios, setAccesorios] = useState<Accesorio[]>([])
+  
   const [cargando, setCargando] = useState(false)
   const [msg,      setMsg]      = useState<{ texto: string; tipo: 'ok' | 'err' } | null>(null)
 
@@ -35,9 +41,15 @@ export default function AdminPage() {
   const [nNombre,  setNNombre]  = useState('')
   const [nColor,   setNColor]   = useState('')
   const [nPrecio,  setNPrecio]  = useState('')
+  
   // Nuevo papel
   const [pNombre,  setPNombre]  = useState('')
   const [pPrecio,  setPPrecio]  = useState('')
+
+  // Nuevo accesorio
+  const [aNombre, setANombre] = useState('')
+  const [aEmoji,  setAEmoji]  = useState('')
+  const [aPrecio, setAPrecio] = useState('')
 
   const mostrarMsg = (texto: string, tipo: 'ok' | 'err') => {
     setMsg({ texto, tipo })
@@ -46,14 +58,16 @@ export default function AdminPage() {
 
   const cargar = useCallback(async () => {
     setCargando(true)
-    const [rf, rp, rt] = await Promise.all([
+    const [rf, rp, rt, ra] = await Promise.all([
       fetch('/api/admin/flores').then(r => r.json()),
       fetch('/api/admin/papel').then(r => r.json()),
       fetch('/api/admin/tamanos').then(r => r.json()),
+      fetch('/api/admin/accesorios').then(r => r.json()),
     ])
     setFlores(rf.flores ?? [])
     setPapeles(rp.papeles ?? [])
     setTamanos(rt.tamanos ?? [])
+    setAccesorios(ra.accesorios ?? [])
     setCargando(false)
   }, [])
 
@@ -140,7 +154,7 @@ export default function AdminPage() {
   return (
     <div className="min-h-screen bg-gray-50">
 
-      {/* Header (Aquí agregamos el botón de cerrar sesión) */}
+      {/* Header */}
       <div className="bg-white border-b border-rose-100 px-6 py-4">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div>
@@ -173,7 +187,7 @@ export default function AdminPage() {
 
         {/* Tabs */}
         <div className="flex gap-2 mb-6">
-          {(['flores', 'papel', 'tamanos'] as Tab[]).map((t) => (
+          {(['flores', 'papel', 'tamanos', 'accesorios'] as Tab[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -182,7 +196,7 @@ export default function AdminPage() {
                   ? 'bg-rose-500 text-white shadow-md'
                   : 'bg-white text-gray-500 border border-gray-200 hover:border-rose-300'}`}
             >
-              {t === 'flores' ? '🌸 Flores' : t === 'papel' ? '🎁 Envolturas' : '📐 Tamaños'}
+              {t === 'flores' ? '🌸 Flores' : t === 'papel' ? '🎁 Envolturas' : t === 'tamanos' ? '📐 Tamaños' : '🎀 Accesorios'}
             </button>
           ))}
         </div>
@@ -310,6 +324,71 @@ export default function AdminPage() {
             ))}
           </div>
         )}
+
+        {/* ── TAB ACCESORIOS ─────────────────────────────── */}
+        {tab === 'accesorios' && !cargando && (
+          <div className="space-y-4">
+            <div className="bg-white rounded-2xl p-5 border border-rose-100 shadow-sm">
+              <h2 className="font-semibold text-gray-700 mb-4">➕ Agregar accesorio</h2>
+              <div className="grid grid-cols-3 gap-3 mb-3">
+                <input value={aNombre} onChange={e => setANombre(e.target.value)}
+                  placeholder="Nombre (ej: Moño)"
+                  className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-rose-400" />
+                <input value={aEmoji} onChange={e => setAEmoji(e.target.value)}
+                  placeholder="Emoji (ej: 🎀)"
+                  className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-rose-400 text-center text-xl" />
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                  <input type="number" value={aPrecio} onChange={e => setAPrecio(e.target.value)}
+                    placeholder="Precio"
+                    className="w-full border border-gray-200 rounded-xl pl-7 pr-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-rose-400" />
+                </div>
+              </div>
+              <button onClick={async () => {
+                if (!aNombre || !aEmoji || !aPrecio) { mostrarMsg('Completa todos los campos.', 'err'); return }
+                const res = await fetch('/api/admin/accesorios', {
+                  method: 'POST', headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ nombre: aNombre, emoji: aEmoji, precio_unit: aPrecio })
+                })
+                if (res.ok) { mostrarMsg('✅ Accesorio creado', 'ok'); setANombre(''); setAEmoji(''); setAPrecio(''); cargar() }
+                else mostrarMsg('❌ Error', 'err')
+              }} className="bg-rose-500 hover:bg-rose-600 text-white px-6 py-2 rounded-xl text-sm font-semibold">
+                Agregar accesorio
+              </button>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-rose-100 shadow-sm overflow-hidden">
+              <div className="grid grid-cols-[40px_1fr_80px_90px_40px] gap-3 px-5 py-3 bg-gray-50 text-xs font-semibold text-gray-500 uppercase">
+                <span></span><span>Accesorio</span><span>Precio</span><span>Estado</span><span></span>
+              </div>
+              <div className="divide-y divide-gray-50">
+                {accesorios.map(acc => (
+                  <div key={acc.id} className="grid grid-cols-[40px_1fr_80px_90px_40px] gap-3 px-5 py-3 items-center">
+                    <span className="text-2xl text-center">{acc.emoji}</span>
+                    <span className="font-medium text-gray-800 text-sm">{acc.nombre}</span>
+                    <span className="text-sm text-gray-600">${acc.precio_unit.toFixed(2)}</span>
+                    <button onClick={async () => {
+                      await fetch('/api/admin/accesorios', {
+                        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id: acc.id, disponible: !acc.disponible })
+                      }); cargar()
+                    }} className={`text-xs px-3 py-1 rounded-full font-medium
+                      ${acc.disponible ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-400'}`}>
+                      {acc.disponible ? 'Activo' : 'Oculto'}
+                    </button>
+                    <button onClick={async () => {
+                      if (!confirm('¿Eliminar este accesorio?')) return
+                      await fetch('/api/admin/accesorios', {
+                        method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id: acc.id })
+                      }); cargar()
+                    }} className="text-gray-300 hover:text-red-400 text-lg">🗑</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -318,8 +397,7 @@ export default function AdminPage() {
 // ── Subcomponentes de filas ───────────────────────────────────
 
 function FilaFlor({ flor, onGuardar, onToggle, onEliminar }:
-  { flor: { id:string; nombre:string; color:string; precio_unit:number; disponible:boolean }
-    onGuardar:(p:string)=>void; onToggle:()=>void; onEliminar:()=>void }) {
+  { flor: Flor; onGuardar:(p:string)=>void; onToggle:()=>void; onEliminar:()=>void }) {
   const [precio, setPrecio] = useState(String(flor.precio_unit))
   const [editando, setEditando] = useState(false)
 
@@ -360,8 +438,7 @@ function FilaFlor({ flor, onGuardar, onToggle, onEliminar }:
 }
 
 function FilaPapel({ papel, onGuardar, onToggle }:
-  { papel: { id:string; nombre:string; precio_unit:number; disponible:boolean }
-    onGuardar:(p:string)=>void; onToggle:()=>void }) {
+  { papel: Papel; onGuardar:(p:string)=>void; onToggle:()=>void }) {
   const [precio, setPrecio] = useState(String(papel.precio_unit))
   const [editando, setEditando] = useState(false)
 
@@ -395,8 +472,7 @@ function FilaPapel({ papel, onGuardar, onToggle }:
 }
 
 function FilaTamano({ tamano, onGuardar }:
-  { tamano: { id:string; clave:string; nombre:string; flores_base:number; precio_extra:number; descripcion:string }
-    onGuardar:(campo:string, valor:string)=>void }) {
+  { tamano: Tamano; onGuardar:(campo:string, valor:string)=>void }) {
   const [precio, setPrecio]  = useState(String(tamano.precio_extra))
   const [flores, setFlores]  = useState(String(tamano.flores_base))
   const [edit,   setEdit]    = useState(false)
