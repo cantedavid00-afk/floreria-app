@@ -49,6 +49,27 @@ export async function POST(req: NextRequest) {
     // Obtener catálogo
     const { flores, papeles, tamanos } = await obtenerCatalogo()
 
+    // En obtenerCatalogo (lib/cotizador.ts), agrega accesorios:
+    const [{ data: flores }, { data: papeles }, { data: tamanos }, { data: accesorios }] =
+      await Promise.all([
+        supabaseAdmin.from('flores').select('*').eq('disponible', true).order('nombre'),
+        supabaseAdmin.from('papel_envoltura').select('*').eq('disponible', true).order('nombre'),
+        supabaseAdmin.from('tamanos_ramo').select('*').order('multiplicador'),
+        supabaseAdmin.from('accesorios').select('*').eq('disponible', true).order('nombre'),
+      ])
+    
+    return {
+      flores:     flores     ?? [],
+      papeles:    papeles    ?? [],
+      tamanos:    tamanos    ?? [],
+      accesorios: accesorios ?? [],
+    }
+    
+    // Y en el return del route.ts agrega accesorios al catálogo:
+    catalogo: { flores, papeles, tamanos, accesorios },
+
+    
+
     if (flores.length === 0) {
       return NextResponse.json({ error: 'No hay flores en el catálogo.' }, { status: 500 })
     }
