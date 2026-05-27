@@ -34,7 +34,6 @@ export async function detectarFlores(
     const token = process.env.GITHUB_TOKEN
     if (!token) throw new Error('Falta GITHUB_TOKEN en .env.local')
 
-    // Prompt enriquecido: Mantiene tu súper guía visual pero prioriza tu catálogo actual
     const prompt = `Eres un florista experto con 20 años de experiencia. Analiza esta imagen con MÁXIMO detalle e identifica TODAS las flores y follajes visibles.
 
 ═══ INVENTARIO ACTUAL DE LA TIENDA ═══
@@ -42,48 +41,33 @@ Intenta clasificar las flores usando estos nombres y colores si coinciden visual
 Nombres: Anath, Baby, Chabela, Claveles, Crisantemo, Dólar, Espuela, Gerberas, Girasoles, Hortensia, Lirios, Lishianthus, Lisianthus, Matzumoto, Rosas, Santa Maria
 Colores: Rosa intenso, Blanca, Rosa palo, Verde, Blanco, Amarillo, Rosa, Azul, Lila, Blanco verdoso, Morado, Blanca y rosa, Rojas, Blanco melon
 
-═══ GUÍA VISUAL DE IDENTIFICACIÓN (Para referencia y futuras flores) ═══
-🌹 ROSA: Pétalos en espiral enrollados hacia adentro, muchas capas.
-🌹 ROSA INGLESA / MINI: Como la rosa pero más redondeada/esférica o de tamaño muy pequeño.
-🌷 TULIPÁN: Forma de copa/huevo CERRADO con pétalos lisos SIN textura.
-🌼 GERBERA: Flor grande con pétalos PLANOS que irradian desde un centro oscuro circular.
-🌸 DALIA / CRISANTEMO / MATZUMOTO: Pétalos en punta organizados en muchas capas concéntricas. 
-🌸 CLAVEL: Pétalos con bordes DENTADOS o rizados, flor compacta y redonda.
-💐 PEONÍA: Flor muy grande y exuberante con MUCHÍSIMOS pétalos suaves.
-💠 HORTENSIA: RACIMOS grandes de flores PEQUEÑAS agrupadas en pompón esférico o plano.
-🌺 ANTHURIUM: Forma de CORAZÓN o escudo con superficie brillante/cerosa.
-💐 LILIUM / LIRIOS: Pétalos grandes que se abren hacia afuera como una trompeta o estrella.
-🌺 ORQUÍDEA: Flor de simetría especial con pétalos delicados.
-🌸 ALSTROEMERIA / ASTROMELIA: Flores pequeñas en grupos, con pétalos internos moteados.
-🌸 LISIANTHUS / LISHIANTHUS: Pétalos suaves y sedosos, semiabiertos como rosa pero más delicados.
-🌸 RANÚNCULO / ANÉMONA: Capas de pétalos muy finos, o flor con centro negro llamativo.
-🌻 GIRASOL: Centro café/negro grande y prominente rodeado de pétalos amarillos largos.
-🌾 SNAPDRAGON / ESPUELA: Flores a lo largo de un tallo vertical.
-
-═══ FOLLAJES COMUNES ═══
-- Baby / Nube / Gypsophila: pequeñas flores blancas en nube
-- Dólar / Eucalipto: hojas redondeadas grises/verdes
-- Ruscus / Helecho: hojas alargadas y brillantes
+═══ GUÍA VISUAL DE IDENTIFICACIÓN ═══
+🌹 ROSA: Pétalos en espiral enrollados hacia adentro.
+🌷 TULIPÁN: Forma de copa/huevo CERRADO.
+🌼 GERBERA: Flor grande con pétalos PLANOS, como margarita gigante.
+💠 HORTENSIA: RACIMOS grandes de flores PEQUEÑAS en pompón esférico.
+🌸 CLAVEL: Pétalos con bordes DENTADOS o rizados, muy compacto.
+🌺 LIRIOS: Pétalos grandes que se abren hacia afuera como trompeta.
+🌻 GIRASOL: Centro café/negro grande y pétalos amarillos largos.
+🌿 FOLLAJES: Baby / Nube (florecitas blancas diminutas), Dólar / Eucalipto (hojas redondeadas).
 
 ═══ REGLAS IMPORTANTES ═══
 1. Cuenta SEPARADO cada combinación única de flor+color.
 2. Si la flor o follaje existe en el INVENTARIO ACTUAL, usa ese nombre y color exacto.
-3. Si es una flor que NO está en el inventario actual, identifícala con su nombre real según la Guía Visual (la app se encargará de sugerir reemplazos).
-4. Sé generoso con las cantidades (mejor estimar de más).
-5. El follaje (ej. Baby, Dólar, Eucalipto) indícalo en el campo "tipo_follaje".
+3. Si es una flor que NO está en el inventario actual, identifícala con su nombre real (nosotros sugeriremos un reemplazo).
+4. Sé generoso con las cantidades.
+5. IMPORTANTE: Trata el follaje (Baby, Dólar, etc.) como un elemento más y mételo directamente en la lista de "flores". No lo separes.
 
 Responde ÚNICAMENTE con este JSON válido, sin texto extra:
 
 {
   "flores": [
     {
-      "nombre": "Nombre de la flor",
-      "color": "Color de la flor",
+      "nombre": "Nombre de la flor o follaje",
+      "color": "Color",
       "cantidad_estimada": número entero
     }
-  ],
-  "tiene_follaje": true o false,
-  "tipo_follaje": "descripción del follaje (ej. Dólar, Baby) o null"
+  ]
 }`
 
     console.log('[Paso 1] Enviando imagen a GitHub Models...')
@@ -116,8 +100,6 @@ Responde ÚNICAMENTE con este JSON válido, sin texto extra:
     }
 
     const jsonResponse = await response.json()
-    console.log('[Paso 2] Respuesta OK recibida.')
-
     const texto = jsonResponse.choices?.[0]?.message?.content
     if (!texto) throw new Error('El modelo no devolvió texto.')
 
@@ -138,21 +120,14 @@ Responde ÚNICAMENTE con este JSON válido, sin texto extra:
       })
     )
 
-    console.log('[ÉXITO] 🌸 Flores detectadas:', JSON.stringify(flores_detectadas, null, 2))
-
     return {
       exitoso:           true,
       flores_detectadas,
-      mensaje_debug:     parsed.tiene_follaje
-        ? `Follaje: ${parsed.tipo_follaje ?? 'verde'}`
-        : undefined,
+      mensaje_debug:     'IA procesó la imagen correctamente',
     }
 
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : 'Error desconocido'
-    console.error('💥 Error:', msg)
     return { exitoso: false, flores_detectadas: [], mensaje_debug: `Error: ${msg}` }
-  } finally {
-    console.log('--- 🏁 FIN ---\n')
   }
 }
