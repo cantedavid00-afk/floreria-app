@@ -26,7 +26,7 @@ export interface DatosCotizacion {
   avisos?:              AvisoSustitucion[]
   total:                number
   nota?:                string
-  envio?:               { tipo: 'domicilio' | 'sucursal'; zona?: { nombre: string; descripcion: string; precio: number }; sucursal?: { nombre: string; direccion: string }; precio: number } | null
+  envio?: { tipo: 'domicilio' | 'sucursal'; zona?: { id: string; nombre: string; descripcion: string; precio: number }; sucursal?: { id: string; nombre: string; direccion: string }; precio: number } | null
   sucursales?:          { id: string; nombre: string; direccion: string; maps_url?: string }[]
   catalogo: {
     flores:      Flor[]
