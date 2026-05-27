@@ -19,15 +19,14 @@ interface Sucursal {
 
 interface SelectorEnvioProps {
   sucursales:  Sucursal[]
-  onSeleccionar: (opcion: OpcionEnvio) => void
   seleccionado?: OpcionEnvio | null
-  onChange: (nuevoEnvio: any) => void;
+  onChange: (nuevoEnvio: OpcionEnvio) => void
 }
 
 export default function SelectorEnvio({
   sucursales,
-  onSeleccionar,
   seleccionado,
+  onChange,
 }: SelectorEnvioProps) {
   const [modo,         setModo]         = useState<'domicilio' | 'sucursal' | null>(null)
   const [cp,           setCp]           = useState('')
@@ -53,14 +52,16 @@ export default function SelectorEnvio({
 
     if (data.encontrado) {
       setResultado(data.zona)
-      onSeleccionar({ tipo: 'domicilio', zona: data.zona, precio: data.zona.precio })
+      // Usamos onChange en lugar de onSeleccionar
+      onChange({ tipo: 'domicilio', zona: data.zona, precio: data.zona.precio })
     } else {
       setError(data.mensaje)
     }
   }
 
   const elegirSucursal = (suc: Sucursal) => {
-    onSeleccionar({ tipo: 'sucursal', sucursal: suc, precio: 0 })
+    // Usamos onChange en lugar de onSeleccionar
+    onChange({ tipo: 'sucursal', sucursal: suc, precio: 0 })
   }
 
   return (
@@ -179,7 +180,7 @@ export default function SelectorEnvio({
                         {suc.direccion}
                       </p>
         
-                      {/* 🌍 NUEVO: Link a Google Maps */}
+                      {/* 🌍 Link a Google Maps */}
                       {suc.maps_url && (
                         <a
                           href={suc.maps_url}
