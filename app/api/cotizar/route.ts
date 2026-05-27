@@ -4,7 +4,6 @@ import { detectarFlores } from '@/lib/huggingface'
 import { obtenerCatalogo, construirCotizacion } from '@/lib/cotizador'
 import { v4 as uuidv4 } from 'uuid'
 
-
 export const maxDuration = 10
 
 export async function POST(req: NextRequest) {
@@ -21,6 +20,9 @@ export async function POST(req: NextRequest) {
     if (!tiposPermitidos.includes(archivo.type)) {
       return NextResponse.json({ error: 'Solo JPG, PNG o WEBP.' }, { status: 400 })
     }
+    
+    // Nota: El texto de error dice 5 MB, pero el cálculo matemático (10 * 1024 * 1024) permite 10 MB. 
+    // Lo dejé igual, pero puedes ajustarlo a 5 * 1024 * 1024 si quieres ser estricto con los 5 MB.
     if (archivo.size > 10 * 1024 * 1024) {
       return NextResponse.json({ error: 'La imagen no debe superar 5 MB.' }, { status: 400 })
     }
@@ -46,29 +48,8 @@ export async function POST(req: NextRequest) {
     // Llamar a la IA
     const resultadoIA = await detectarFlores(buffer, 55000)
 
-    // Obtener catálogo
-    const { flores, papeles, tamanos } = await obtenerCatalogo()
-
-    // En obtenerCatalogo (lib/cotizador.ts), agrega accesorios:
-    const [{ data: flores }, { data: papeles }, { data: tamanos }, { data: accesorios }] =
-      await Promise.all([
-        supabaseAdmin.from('flores').select('*').eq('disponible', true).order('nombre'),
-        supabaseAdmin.from('papel_envoltura').select('*').eq('disponible', true).order('nombre'),
-        supabaseAdmin.from('tamanos_ramo').select('*').order('multiplicador'),
-        supabaseAdmin.from('accesorios').select('*').eq('disponible', true).order('nombre'),
-      ])
-    
-    return {
-      flores:     flores     ?? [],
-      papeles:    papeles    ?? [],
-      tamanos:    tamanos    ?? [],
-      accesorios: accesorios ?? [],
-    }
-    
-    // Y en el return del route.ts agrega accesorios al catálogo:
-    catalogo: { flores, papeles, tamanos, accesorios },
-
-    
+    // Obtener catálogo completo usando la función de lib/cotizador.ts
+    const { flores, papeles, tamanos, accesorios } = await obtenerCatalogo()
 
     if (flores.length === 0) {
       return NextResponse.json({ error: 'No hay flores en el catálogo.' }, { status: 500 })
@@ -111,7 +92,7 @@ export async function POST(req: NextRequest) {
       ia_mensaje:    resultadoIA.mensaje_debug ?? null,
       ...cotizacionBase,
       tamano:        tamanoElegido,
-      catalogo:      { flores, papeles, tamanos },
+      catalogo:      { flores, papeles, tamanos, accesorios }, // Accesorios integrados al retorno
     })
 
   } catch (error) {
