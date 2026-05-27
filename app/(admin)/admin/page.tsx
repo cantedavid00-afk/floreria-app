@@ -471,6 +471,48 @@ function FilaPapel({ papel, onGuardar, onToggle }:
   )
 }
 
+function FilaAccesorio({ acc, onGuardar, onToggle, onEliminar }:
+  { acc: Accesorio; onGuardar: (p: string) => void; onToggle: () => void; onEliminar: () => void }) {
+  const [precio, setPrecio] = useState(String(acc.precio_unit))
+  const [editando, setEditando] = useState(false)
+
+  return (
+    <div className="grid grid-cols-[40px_1fr_80px_90px_40px] gap-3 px-5 py-3 items-center">
+      <span className="text-2xl text-center">{acc.emoji}</span>
+      <span className="font-medium text-gray-800 text-sm">{acc.nombre}</span>
+      
+      <div className="flex items-center gap-1">
+        {editando ? (
+          <>
+            <span className="text-gray-400 text-sm">$</span>
+            <input 
+              type="number" value={precio} 
+              onChange={e => setPrecio(e.target.value)}
+              className="w-16 border border-rose-300 rounded-lg px-2 py-1 text-sm text-gray-800 focus:outline-none" 
+            />
+            <button onClick={() => { onGuardar(precio); setEditando(false) }}
+              className="text-emerald-500 text-xs font-bold ml-1">✓</button>
+          </>
+        ) : (
+          <button onClick={() => setEditando(true)}
+            className="text-sm text-gray-700 hover:text-rose-500 font-medium">
+            ${acc.precio_unit.toFixed(2)} ✎
+          </button>
+        )}
+      </div>
+
+      <button onClick={onToggle}
+        className={`text-xs px-3 py-1 rounded-full font-medium transition-colors
+          ${acc.disponible ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-400'}`}>
+        {acc.disponible ? 'Activo' : 'Oculto'}
+      </button>
+      <button onClick={onEliminar} className="text-gray-300 hover:text-red-400 text-lg transition-colors">
+        🗑
+      </button>
+    </div>
+  )
+}
+
 function FilaTamano({ tamano, onGuardar }:
   { tamano: Tamano; onGuardar:(campo:string, valor:string)=>void }) {
   const [precio, setPrecio]  = useState(String(tamano.precio_extra))
