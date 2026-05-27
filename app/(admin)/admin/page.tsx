@@ -1,5 +1,4 @@
 // app/(admin)/admin/page.tsx
-
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
@@ -363,27 +362,37 @@ export default function AdminPage() {
               </div>
               <div className="divide-y divide-gray-50">
                 {accesorios.map(acc => (
-                  <div key={acc.id} className="grid grid-cols-[40px_1fr_80px_90px_40px] gap-3 px-5 py-3 items-center">
-                    <span className="text-2xl text-center">{acc.emoji}</span>
-                    <span className="font-medium text-gray-800 text-sm">{acc.nombre}</span>
-                    <span className="text-sm text-gray-600">${acc.precio_unit.toFixed(2)}</span>
-                    <button onClick={async () => {
+                  <FilaAccesorio
+                    key={acc.id}
+                    acc={acc}
+                    onGuardar={async (precioNuevo) => {
                       await fetch('/api/admin/accesorios', {
-                        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id: acc.id, precio_unit: precioNuevo }),
+                      })
+                      mostrarMsg('✅ Precio actualizado', 'ok')
+                      cargar()
+                    }}
+                    onToggle={async () => {
+                      await fetch('/api/admin/accesorios', {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ id: acc.id, disponible: !acc.disponible })
-                      }); cargar()
-                    }} className={`text-xs px-3 py-1 rounded-full font-medium
-                      ${acc.disponible ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-400'}`}>
-                      {acc.disponible ? 'Activo' : 'Oculto'}
-                    </button>
-                    <button onClick={async () => {
+                      })
+                      cargar()
+                    }}
+                    onEliminar={async () => {
                       if (!confirm('¿Eliminar este accesorio?')) return
                       await fetch('/api/admin/accesorios', {
-                        method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+                        method: 'DELETE',
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ id: acc.id })
-                      }); cargar()
-                    }} className="text-gray-300 hover:text-red-400 text-lg">🗑</button>
-                  </div>
+                      })
+                      mostrarMsg('🗑️ Accesorio eliminado', 'ok')
+                      cargar()
+                    }}
+                  />
                 ))}
               </div>
             </div>
