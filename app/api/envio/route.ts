@@ -1,4 +1,5 @@
-// app/api/envio/route.tsimport { NextRequest, NextResponse } from 'next/server';
+// app/api/envio/route.ts
+import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 
 // ── GET: Cargar datos iniciales
@@ -19,7 +20,7 @@ export async function GET() {
   }
 }
 
-// ── POST: Buscar CP con diagnóstico de errores
+// ── POST: Buscar CP (Lógica en dos pasos para mayor seguridad)
 export async function POST(req: NextRequest) {
   try {
     const { codigo_postal } = await req.json();
@@ -30,53 +31,40 @@ export async function POST(req: NextRequest) {
 
     const cpString = String(codigo_postal).trim();
 
-    // Consultamos
-    const { data, error } = await supabaseAdmin
+    // 1. Buscar CP
+    const { data: cpData, error: cpError } = await supabaseAdmin
       .from('catalogo_cp')
-      .select(`
-        cp,
-        asentamiento,
-        zonas_envio (
-          id,
-          nombre_zona,
-          precio
-        )
-      `)
+      .select('cp, asentamiento, zona_id')
       .eq('cp', cpString)
       .maybeSingle();
 
-    // 1. Error de comunicación con Supabase
-    if (error) {
-      console.error("Error en Supabase:", error);
-      return NextResponse.json({ encontrado: false, mensaje: 'Error de conexión con la base de datos.' });
+    if (cpError || !cpData) {
+      return NextResponse.json({ encontrado: false, mensaje: 'CP no encontrado.' });
     }
 
-    // 2. CP no existe
-    if (!data) {
-      return NextResponse.json({ encontrado: false, mensaje: `CP ${cpString} no encontrado en la base de datos.` });
-    }
+    // 2. Buscar Zona manualmente
+    const { data: zonaData, error: zonaError } = await supabaseAdmin
+      .from('zonas_envio')
+      .select('*')
+      .eq('id', cpData.zona_id)
+      .single();
 
-    // 3. Existe el CP pero no tiene zona (zona_id era NULL)
-    if (!data.zonas_envio) {
-      return NextResponse.json({ encontrado: false, mensaje: `El CP ${cpString} existe, pero no tiene una zona de envío asignada (zona_id es NULL).` });
+    if (zonaError || !zonaData) {
+      return NextResponse.json({ encontrado: false, mensaje: 'Zona no encontrada para este CP.' });
     }
-
-    // Si todo está bien, extraemos los datos
-    const zonaData = data.zonas_envio;
-    const zona = Array.isArray(zonaData) ? zonaData[0] : zonaData;
 
     return NextResponse.json({
       encontrado: true,
       zona: {
-        id: zona.id,
-        nombre: zona.nombre_zona,
-        descripcion: `Zona de entrega para ${data.asentamiento}`,
-        precio: zona.precio,
+        id: zonaData.id,
+        nombre: zonaData.nombre_zona,
+        descripcion: `Zona de entrega para ${cpData.asentamiento}`,
+        precio: zonaData.precio,
       },
     });
     
   } catch (err) {
-    console.error('Error crítico en API:', err);
-    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
+    console.error('Error en API:', err);
+    return NextResponse.json({ error: 'Error interno' }, { status: 500 });
   }
 }
