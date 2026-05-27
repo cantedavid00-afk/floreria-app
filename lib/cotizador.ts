@@ -29,21 +29,15 @@ export async function obtenerCatalogo(): Promise<{
   }
 }
 
-// NUEVA FUNCIÓN NORMALIZAR: Entiende que "Girasol" = "Girasoles"
+// Normaliza textos ignorando acentos, espacios y plurales (es/s)
 function normalizar(texto: string): string {
   let limpio = texto.toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .trim()
 
-  // Eliminar plurales comunes en español para hacer el match exacto
-  if (limpio.endsWith('es')) {
-    limpio = limpio.slice(0, -2) // Quita 'es'
-  } else if (limpio.endsWith('s')) {
-    limpio = limpio.slice(0, -1) // Quita 's'
-  }
-
-  return limpio
+  // Eliminar plurales comunes en español para mejorar el match
+  return limpio.replace(/(es|s)$/, '')
 }
 
 const MARGEN = 0.35
@@ -57,7 +51,7 @@ export function construirCotizacion(
   const detalle: ItemCotizacion[] = []
   const avisos: AvisoSustitucion[] = [] 
 
-  // Flor "comodín" si de plano no tenemos nada parecido a lo que detectó la IA
+  // Flor "comodín" para casos donde la IA detecta algo inexistente en inventario
   const florPorDefecto = catalogo.find(f => f.nombre === 'Rosas' && f.color === 'Rojas') 
                       ?? catalogo.find(f => f.nombre === 'Rosas') 
                       ?? catalogo[0]; 
@@ -70,7 +64,7 @@ export function construirCotizacion(
 
       let florFinal: Flor | undefined = undefined;
 
-      // 1. Intentar Match Exacto (Nombre + Color)
+      // 1. Match Exacto (Nombre + Color)
       if (colorBuscado) {
         florFinal = catalogo.find(f =>
           normalizar(f.nombre) === nombreBuscado &&
@@ -78,10 +72,9 @@ export function construirCotizacion(
         )
       }
 
-      // 2. Si no hay match exacto, buscar por puro Nombre (mismo tipo de flor, diferente color)
+      // 2. Match por Nombre (color diferente, pero es la misma flor)
       if (!florFinal) {
         florFinal = catalogo.find(f => normalizar(f.nombre) === nombreBuscado)
-        
         if (florFinal) {
            avisos.push({
              detectado: nombreOriginalDetectado,
@@ -91,7 +84,7 @@ export function construirCotizacion(
         }
       }
 
-      // 3. Nombre parcial (ej: el usuario subió algo que contiene parte del nombre)
+      // 3. Match Parcial (búsqueda flexible)
       if (!florFinal) {
         florFinal = catalogo.find(f =>
           normalizar(f.nombre).includes(nombreBuscado) ||
@@ -100,14 +93,17 @@ export function construirCotizacion(
         if (florFinal) {
             avisos.push({
               detectado: nombreOriginalDetectado,
-              motivo: 'Color/Variedad no disponible',
+              motivo: 'Variedad no disponible',
               sugerencia: `${florFinal.nombre} ${florFinal.color}`
             })
         }
       }
 
-      // 4. Si la tienda NO VENDE ese tipo de flor en absoluto
-      if (!florFinal && !['gypsophila', 'nube', 'follaje', 'eucalipto', 'helecho', 'ruscus', 'baby', 'dolar'].some(f => nombreBuscado.includes(f))) {
+      // 4. Si la tienda NO VENDE ese tipo de flor -> Usar comodín
+      // (Lista de exclusión de follajes para no generar avisos innecesarios)
+      const esFollaje = ['gypsophila', 'nube', 'eucalipto', 'ruscus', 'baby', 'dolar', 'helecho'].some(f => nombreBuscado.includes(f));
+      
+      if (!florFinal && !esFollaje) {
          florFinal = florPorDefecto;
          if (florFinal) {
              avisos.push({
@@ -118,6 +114,7 @@ export function construirCotizacion(
          }
       }
 
+      // Agregar al detalle
       if (florFinal) {
         const indexExistente = detalle.findIndex(i => i.flor.id === florFinal?.id);
         const cantidadAIncrementar = Math.max(
@@ -139,7 +136,7 @@ export function construirCotizacion(
     }
   }
 
-  // Ramo default extremo
+  // Safety net: Si el detalle quedó vacío tras todo el proceso, forzamos la flor por defecto
   if (detalle.length === 0 && florPorDefecto) {
     detalle.push({
       flor:      florPorDefecto,
@@ -148,7 +145,7 @@ export function construirCotizacion(
     })
   }
 
-  // Calcular total con margen oculto
+  // Calcular total
   const subtotalFlores = detalle.reduce((acc, i) => acc + i.subtotal, 0)
   const papelPrecio    = tamanoDefault.papel_precio ?? 0
   const subtotalBase   = subtotalFlores + papelPrecio
