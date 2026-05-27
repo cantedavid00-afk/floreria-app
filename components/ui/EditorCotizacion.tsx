@@ -3,7 +3,7 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
-import { Flor, ItemCotizacion, PapelEnvoltura, TamanoRamo, Accesorio } from '@/types'
+import { Flor, ItemCotizacion, PapelEnvoltura, TamanoRamo, Accesorio, AvisoSustitucion } from '@/types'
 import TarjetaFlor from './TarjetaFlor'
 import BuscadorFlores from './BuscadorFlores'
 import SelectorTamano from './SelectorTamano'
@@ -22,6 +22,7 @@ export interface DatosCotizacion {
   papel:                PapelEnvoltura
   tamano:               TamanoRamo
   accesorios_seleccionados: Accesorio[]
+  avisos?:              AvisoSustitucion[] // ← Recibir avisos del backend
   total:                number
   nota?:                string
   envio?:               { tipo: string; zona?: { nombre: string; descripcion: string; precio: number }; sucursal?: { nombre: string; direccion: string }; precio: number } | null
@@ -69,10 +70,10 @@ export default function EditorCotizacion({
   datos, onActualizar, onAprobar, onNuevaCotizacion,
 }: EditorCotizacionProps) {
 
-  const [presupuesto,        setPresupuesto]        = useState('')
+  const [presupuesto,         setPresupuesto]        = useState('')
   const [mensajePresupuesto, setMensajePresupuesto] = useState<string | null>(null)
   const [mostrarPresupuesto, setMostrarPresupuesto] = useState(false)
-  const [nota,               setNota]               = useState(datos.nota ?? '')
+  const [nota,                setNota]               = useState(datos.nota ?? '')
 
   const florAgrupadas       = agruparPorNombre(datos.catalogo.flores)
   const floresPrincipales   = datos.detalle.filter(i => !esFollaje(i.flor.nombre))
@@ -86,8 +87,8 @@ export default function EditorCotizacion({
     nuevoTamano?:     TamanoRamo,
     nuevosAccesorios?: Accesorio[]
   ) => calcularTotal(
-    nuevoDetalle    ?? datos.detalle,
-    nuevoTamano     ?? datos.tamano,
+    nuevoDetalle     ?? datos.detalle,
+    nuevoTamano      ?? datos.tamano,
     nuevosAccesorios ?? accesoriosSelec,
     costoEnvio
   )
@@ -196,6 +197,34 @@ export default function EditorCotizacion({
           )}
         </div>
       </div>
+
+      {/* ── Avisos de Sustitución (NUEVO BLOQUE) ──────────────── */}
+      {datos.avisos && datos.avisos.length > 0 && (
+        <section className="bg-amber-50 border border-amber-200 rounded-2xl p-4 shadow-sm">
+          <div className="flex items-start gap-2 mb-2">
+            <span className="text-amber-500 text-lg leading-none mt-0.5">💡</span>
+            <div>
+              <h3 className="font-semibold text-amber-800 text-sm">Adaptamos el diseño para ti</h3>
+              <p className="text-xs text-amber-700/80">
+                Basados en nuestro catálogo actual, te sugerimos estas opciones:
+              </p>
+            </div>
+          </div>
+          <ul className="space-y-2 mt-3">
+            {datos.avisos.map((aviso, idx) => (
+              <li key={idx} className="text-xs bg-white/60 rounded-xl px-3 py-2 text-amber-800 flex flex-col gap-1">
+                <div className="flex justify-between items-center">
+                  <span className="font-medium line-through opacity-60 capitalize">{aviso.detectado}</span>
+                  <span className="text-amber-600 font-bold">→ {aviso.sugerencia}</span>
+                </div>
+                <span className="text-[10px] uppercase font-bold tracking-wider opacity-60">
+                  Motivo: {aviso.motivo}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {/* ── Flores principales ──────────────────────────────── */}
       <section>
