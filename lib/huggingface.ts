@@ -9,7 +9,7 @@ export interface ResultadoIA {
 export interface FloresDetectada {
   nombre_en: string
   nombre_es: string
-  color: string           // ← NUEVO campo
+  color: string
   confianza: number
   cantidad_estimada?: number
 }
@@ -34,82 +34,57 @@ export async function detectarFlores(
     const token = process.env.GITHUB_TOKEN
     if (!token) throw new Error('Falta GITHUB_TOKEN en .env.local')
 
-    const prompt = `Eres un florista experto con 20 años de experiencia. Analiza esta imagen con MÁXIMO detalle e identifica TODAS las flores visibles.
+    // Prompt enriquecido: Mantiene tu súper guía visual pero prioriza tu catálogo actual
+    const prompt = `Eres un florista experto con 20 años de experiencia. Analiza esta imagen con MÁXIMO detalle e identifica TODAS las flores y follajes visibles.
 
-═══ GUÍA VISUAL DE IDENTIFICACIÓN ═══
+═══ INVENTARIO ACTUAL DE LA TIENDA ═══
+Intenta clasificar las flores usando estos nombres y colores si coinciden visualmente:
+Nombres: Anath, Baby, Chabela, Claveles, Crisantemo, Dólar, Espuela, Gerberas, Girasoles, Hortensia, Lirios, Lishianthus, Lisianthus, Matzumoto, Rosas, Santa Maria
+Colores: Rosa intenso, Blanca, Rosa palo, Verde, Blanco, Amarillo, Rosa, Azul, Lila, Blanco verdoso, Morado, Blanca y rosa, Rojas, Blanco melon
 
-🌹 ROSA: Pétalos en espiral enrollados hacia adentro, muchas capas, centro apretado. Colores: rojo, rosa, blanco, amarillo, coral, morado.
-
-🌹 ROSA INGLESA: Como la rosa pero con forma más redondeada/esférica y pétalos muy densamente empacados. Aspecto de peonía pequeña.
-
-🌹 ROSA MINI: Rosa pero muy pequeña, del tamaño de una moneda o menos.
-
-🌷 TULIPÁN: Forma de copa/huevo CERRADO con pétalos lisos SIN textura. Tallo largo y recto. NUNCA tiene el centro visible.
-
-🌼 GERBERA: Flor grande con pétalos PLANOS que irradian desde un centro oscuro circular. Parecida a margarita grande. Pétalos de una sola capa.
-
-🌸 DALIA: Pétalos en punta como ESTRELLA o cactus, organizados en muchas capas concéntricas. Centro compacto. MUY diferente a la gerbera.
-
-🌸 CLAVEL: Pétalos con bordes DENTADOS o rizados, flor compacta y redonda. Fragante. Tamaño mediano.
-
-💐 PEONÍA: Flor muy grande y exuberante con MUCHÍSIMOS pétalos suaves, redondeados y sedosos. Aspecto lujoso y voluminoso.
-
-💠 HORTENSIA: RACIMOS grandes de flores PEQUEÑAS agrupadas en pompón esférico o plano. Una sola cabeza puede medir 15-20cm.
-
-🌺 ANTHURIUM: Forma de CORAZÓN o escudo con superficie brillante/cerosa. Tiene un espádice (palito) que sale del centro. Colores: rojo, naranja, rosa, blanco.
-
-💐 LILIUM: Pétalos grandes que se abren hacia afuera como una trompeta o estrella. Centro con estambres visibles y prominentes. Olor intenso.
-
-🌺 ORQUÍDEA: Flor de simetría especial con pétalos delicados. Tiene labelo (pétalo modificado diferente). Tallos arqueados con varias flores.
-
-🌸 ALSTROEMERIA: Flores pequeñas en grupos, con pétalos internos moteados/rayados. Parecida a lirio pequeño.
-
-🌸 LISIANTHUS: Pétalos suaves y sedosos, semiabiertos como rosa pero más delicados y arrugados. Colores pasteles.
-
-🌸 RANÚNCULO: Capas y capas de pétalos muy finos y delicados, como papel de seda. Más pequeño que la peonía.
-
-🌸 FRESIA: Flores pequeñas en forma de embudo agrupadas a lo largo de un tallo arqueado. Fragante.
-
-🌸 ANÉMONA: Flor simple con pétalos amplios y centro negro oscuro muy prominente y llamativo.
-
-🌻 GIRASOL: Centro café/negro grande y prominente rodeado de pétalos amarillos largos. Tamaño grande.
-
-🌾 SNAPDRAGON: Flores tubulares apiladas a lo largo de un tallo vertical, como dragoncitos.
+═══ GUÍA VISUAL DE IDENTIFICACIÓN (Para referencia y futuras flores) ═══
+🌹 ROSA: Pétalos en espiral enrollados hacia adentro, muchas capas.
+🌹 ROSA INGLESA / MINI: Como la rosa pero más redondeada/esférica o de tamaño muy pequeño.
+🌷 TULIPÁN: Forma de copa/huevo CERRADO con pétalos lisos SIN textura.
+🌼 GERBERA: Flor grande con pétalos PLANOS que irradian desde un centro oscuro circular.
+🌸 DALIA / CRISANTEMO / MATZUMOTO: Pétalos en punta organizados en muchas capas concéntricas. 
+🌸 CLAVEL: Pétalos con bordes DENTADOS o rizados, flor compacta y redonda.
+💐 PEONÍA: Flor muy grande y exuberante con MUCHÍSIMOS pétalos suaves.
+💠 HORTENSIA: RACIMOS grandes de flores PEQUEÑAS agrupadas en pompón esférico o plano.
+🌺 ANTHURIUM: Forma de CORAZÓN o escudo con superficie brillante/cerosa.
+💐 LILIUM / LIRIOS: Pétalos grandes que se abren hacia afuera como una trompeta o estrella.
+🌺 ORQUÍDEA: Flor de simetría especial con pétalos delicados.
+🌸 ALSTROEMERIA / ASTROMELIA: Flores pequeñas en grupos, con pétalos internos moteados.
+🌸 LISIANTHUS / LISHIANTHUS: Pétalos suaves y sedosos, semiabiertos como rosa pero más delicados.
+🌸 RANÚNCULO / ANÉMONA: Capas de pétalos muy finos, o flor con centro negro llamativo.
+🌻 GIRASOL: Centro café/negro grande y prominente rodeado de pétalos amarillos largos.
+🌾 SNAPDRAGON / ESPUELA: Flores a lo largo de un tallo vertical.
 
 ═══ FOLLAJES COMUNES ═══
-- Nube/Gypsophila: pequeñas flores blancas en nube
-- Eucalipto: hojas redondeadas grises/verdes
-- Ruscus: hojas alargadas y brillantes
-- Palma seca: hojas de abanico grandes beige/café
-- Hojas secas: follaje decorativo café/dorado
+- Baby / Nube / Gypsophila: pequeñas flores blancas en nube
+- Dólar / Eucalipto: hojas redondeadas grises/verdes
+- Ruscus / Helecho: hojas alargadas y brillantes
 
 ═══ REGLAS IMPORTANTES ═══
-1. Cuenta SEPARADO cada combinación única de flor+color
-2. Si hay 5 dalias coral Y 3 dalias blancas = DOS entradas
-3. El follaje NO cuenta como flor, va en "tipo_follaje"
-4. Si no estás seguro entre dos flores, elige la más probable y anótalo
-5. Sé generoso con las cantidades (mejor estimar de más)
-6. NUNCA confundas: Dalia≠Gerbera, Tulipán≠Rosa, Peonía≠Rosa Inglesa
+1. Cuenta SEPARADO cada combinación única de flor+color.
+2. Si la flor o follaje existe en el INVENTARIO ACTUAL, usa ese nombre y color exacto.
+3. Si es una flor que NO está en el inventario actual, identifícala con su nombre real según la Guía Visual (la app se encargará de sugerir reemplazos).
+4. Sé generoso con las cantidades (mejor estimar de más).
+5. El follaje (ej. Baby, Dólar, Eucalipto) indícalo en el campo "tipo_follaje".
 
 Responde ÚNICAMENTE con este JSON válido, sin texto extra:
 
 {
   "flores": [
     {
-      "nombre": "nombre exacto de la lista",
-      "color": "color exacto de la lista",
+      "nombre": "Nombre de la flor",
+      "color": "Color de la flor",
       "cantidad_estimada": número entero
     }
   ],
   "tiene_follaje": true o false,
-  "tipo_follaje": "descripción detallada del follaje o null"
-}
-
-Nombres VÁLIDOS (usa EXACTAMENTE estos):
-Rosa, Rosa Mini, Rosa Inglesa, Tulipán, Lilium, Lirio, Clavel, Gerbera, Dalia, Orquídea, Margarita, Girasol, Alstroemeria, Hortensia, Peonía, Lavanda, Fresia, Anémona, Ranúnculo, Lisianthus, Snapdragon, Gypsophila, Ave del Paraíso, Anthurium
-
-Colores VÁLIDOS (usa EXACTAMENTE estos):
-Rojo, Rosa, Rosado, Blanco, Amarillo, Naranja, Morado, Azul, Verde, Fucsia, Coral, Bicolor, Lila, Crema, Beige, Café, Terracota`
+  "tipo_follaje": "descripción del follaje (ej. Dólar, Baby) o null"
+}`
 
     console.log('[Paso 1] Enviando imagen a GitHub Models...')
 
@@ -153,7 +128,6 @@ Rojo, Rosa, Rosado, Blanco, Amarillo, Naranja, Morado, Azul, Verde, Fucsia, Cora
       return { exitoso: false, flores_detectadas: [], mensaje_debug: 'No se detectaron flores.' }
     }
 
-    // ✅ BUG CORREGIDO: era [parsed.flores.map](...) con link corrupto
     const flores_detectadas: FloresDetectada[] = parsed.flores.map(
       (f: { nombre: string; color: string; cantidad_estimada: number }) => ({
         nombre_en:         f.nombre,
