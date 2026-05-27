@@ -4,7 +4,7 @@ import { detectarFlores } from '@/lib/huggingface'
 import { obtenerCatalogo, construirCotizacion } from '@/lib/cotizador'
 import { v4 as uuidv4 } from 'uuid'
 
-export const maxDuration = 10
+export const maxDuration = 60
 
 export async function POST(req: NextRequest) {
   try {
