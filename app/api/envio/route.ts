@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
           precio
         )
       `)
-      .eq('cp', String(codigo_postal).trim())
+      .eq('cp', String(codigo_postal).trim().padStart(5, '0'))
       .maybeSingle();
 
     // ── VALIDACIÓN PRIMERO ──
