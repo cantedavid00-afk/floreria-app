@@ -1,8 +1,7 @@
-// app/api/envio/route.ts
-import { NextRequest, NextResponse } from 'next/server';
+// app/api/envio/route.tsimport { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 
-// ── GET: Cargar sucursales y zonas iniciales
+// ── GET: Cargar datos iniciales
 export async function GET() {
   try {
     const [{ data: zonas }, { data: sucursales }] = await Promise.all([
@@ -15,12 +14,12 @@ export async function GET() {
       sucursales: sucursales ?? [] 
     });
   } catch (error) {
-    console.error('Error en GET de envío:', error);
-    return NextResponse.json({ error: 'Error al cargar datos iniciales' }, { status: 500 });
+    console.error('Error en GET:', error);
+    return NextResponse.json({ error: 'Error al cargar datos' }, { status: 500 });
   }
 }
 
-// ── POST: Buscar CP y obtener precio automáticamente
+// ── POST: Buscar CP con diagnóstico de errores
 export async function POST(req: NextRequest) {
   try {
     const { codigo_postal } = await req.json();
@@ -29,6 +28,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Falta código postal.' }, { status: 400 });
     }
 
+    const cpString = String(codigo_postal).trim();
+
+    // Consultamos
     const { data, error } = await supabaseAdmin
       .from('catalogo_cp')
       .select(`
@@ -40,26 +42,28 @@ export async function POST(req: NextRequest) {
           precio
         )
       `)
-      .eq('cp', String(codigo_postal).trim().padStart(5, '0'))
+      .eq('cp', cpString)
       .maybeSingle();
 
-    // ── VALIDACIÓN PRIMERO ──
-    // Si hay error, o data es null, o no existe la relación, regresamos error.
-    if (error || !data || !data.zonas_envio) {
-      return NextResponse.json({
-        encontrado: false,
-        mensaje: 'Código postal no disponible para entrega a domicilio.',
-      });
+    // 1. Error de comunicación con Supabase
+    if (error) {
+      console.error("Error en Supabase:", error);
+      return NextResponse.json({ encontrado: false, mensaje: 'Error de conexión con la base de datos.' });
     }
 
-    // ── ACCESO SEGURO DESPUÉS ──
-    // Ahora que sabemos que data existe, podemos acceder a zonas_envio
+    // 2. CP no existe
+    if (!data) {
+      return NextResponse.json({ encontrado: false, mensaje: `CP ${cpString} no encontrado en la base de datos.` });
+    }
+
+    // 3. Existe el CP pero no tiene zona (zona_id era NULL)
+    if (!data.zonas_envio) {
+      return NextResponse.json({ encontrado: false, mensaje: `El CP ${cpString} existe, pero no tiene una zona de envío asignada (zona_id es NULL).` });
+    }
+
+    // Si todo está bien, extraemos los datos
     const zonaData = data.zonas_envio;
     const zona = Array.isArray(zonaData) ? zonaData[0] : zonaData;
-
-    if (!zona) {
-       return NextResponse.json({ encontrado: false, mensaje: 'Zona no definida.' });
-    }
 
     return NextResponse.json({
       encontrado: true,
@@ -72,7 +76,7 @@ export async function POST(req: NextRequest) {
     });
     
   } catch (err) {
-    console.error('Error en API de envío:', err);
+    console.error('Error crítico en API:', err);
     return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
   }
 }
