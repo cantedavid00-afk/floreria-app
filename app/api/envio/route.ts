@@ -35,6 +35,13 @@ export async function POST(req: NextRequest) {
       `)
       .eq('cp', String(codigo_postal).trim())
       .single();
+    console.log("Datos de Supabase recibidos:", JSON.stringify(data, null, 2));
+
+    if (error || !data || !data.zonas_envio) {
+       // ...
+    }
+    
+    const zonaData = data.zonas_envio;
 
     // Si hay error en la consulta o el CP no existe
     if (error || !data || !data.zonas_envio) {
