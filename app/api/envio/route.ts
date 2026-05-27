@@ -1,13 +1,23 @@
+// app/api/envio/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 
 // ── GET: Cargar sucursales y zonas iniciales
 export async function GET() {
-  const [{ data: zonas }, { data: sucursales }] = await Promise.all([
-    supabaseAdmin.from('zonas_envio').select('*').order('precio'),
-    supabaseAdmin.from('sucursales').select('*').eq('activa', true),
-  ]);
-  return NextResponse.json({ zonas: zonas ?? [], sucursales: sucursales ?? [] });
+  try {
+    const [{ data: zonas }, { data: sucursales }] = await Promise.all([
+      supabaseAdmin.from('zonas_envio').select('*').order('precio'),
+      supabaseAdmin.from('sucursales').select('*').eq('activa', true),
+    ]);
+
+    return NextResponse.json({ 
+      zonas: zonas ?? [], 
+      sucursales: sucursales ?? [] 
+    });
+  } catch (error) {
+    console.error('Error en GET de envío:', error);
+    return NextResponse.json({ error: 'Error al cargar datos iniciales' }, { status: 500 });
+  }
 }
 
 // ── POST: Buscar CP y obtener precio automáticamente
@@ -19,8 +29,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Falta código postal.' }, { status: 400 });
     }
 
-    // Buscamos el CP en la tabla maestra 'catalogo_cp' 
-    // y hacemos un JOIN hacia 'zonas_envio' para obtener el precio relacionado
     const { data, error } = await supabaseAdmin
       .from('catalogo_cp')
       .select(`
@@ -28,22 +36,15 @@ export async function POST(req: NextRequest) {
         asentamiento,
         zonas_envio (
           id,
-          nombre,
-          descripcion,
+          nombre_zona,
           precio
         )
       `)
       .eq('cp', String(codigo_postal).trim())
-      .single();
-    console.log("Datos de Supabase recibidos:", JSON.stringify(data, null, 2));
+      .maybeSingle();
 
-    if (error || !data || !data.zonas_envio) {
-       // ...
-    }
-    
-    const zonaData = data.zonas_envio;
-
-    // Si hay error en la consulta o el CP no existe
+    // ── VALIDACIÓN PRIMERO ──
+    // Si hay error, o data es null, o no existe la relación, regresamos error.
     if (error || !data || !data.zonas_envio) {
       return NextResponse.json({
         encontrado: false,
@@ -51,15 +52,21 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Extraemos la información de la zona que viene relacionada
-    const zona = data.zonas_envio;
+    // ── ACCESO SEGURO DESPUÉS ──
+    // Ahora que sabemos que data existe, podemos acceder a zonas_envio
+    const zonaData = data.zonas_envio;
+    const zona = Array.isArray(zonaData) ? zonaData[0] : zonaData;
+
+    if (!zona) {
+       return NextResponse.json({ encontrado: false, mensaje: 'Zona no definida.' });
+    }
 
     return NextResponse.json({
       encontrado: true,
       zona: {
         id: zona.id,
-        nombre: zona.nombre,
-        descripcion: zona.descripcion,
+        nombre: zona.nombre_zona,
+        descripcion: `Zona de entrega para ${data.asentamiento}`,
         precio: zona.precio,
       },
     });
