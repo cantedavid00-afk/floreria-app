@@ -148,23 +148,6 @@ export function construirCotizacion(
     })
   }
 
-  // Follaje automático
-  const yaHayFollaje = detalle.some(i =>
-    ['gypsophila', 'nube', 'follaje', 'eucalipto', 'helecho', 'ruscus', 'baby', 'dolar']
-      .some(f => normalizar(i.flor.nombre).includes(f))
-  )
-  if (!yaHayFollaje) {
-    const follaje =
-      catalogo.find(f => f.nombre === 'Baby') ??
-      catalogo.find(f => f.nombre === 'Dólar') ??
-      catalogo.find(f => f.nombre === 'Nube') ??
-      catalogo.find(f => normalizar(f.nombre).includes('follaje'))
-      
-    if (follaje) {
-      detalle.push({ flor: follaje, cantidad: 3, subtotal: follaje.precio_unit * 3 })
-    }
-  }
-
   // Calcular total con margen oculto
   const subtotalFlores = detalle.reduce((acc, i) => acc + i.subtotal, 0)
   const papelPrecio    = tamanoDefault.papel_precio ?? 0
