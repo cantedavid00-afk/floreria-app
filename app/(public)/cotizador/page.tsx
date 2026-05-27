@@ -115,6 +115,7 @@ export default function CotizadorPage() {
         detalle:     json.detalle   as ItemCotizacion[],
         papel:       json.papel     as PapelEnvoltura,
         tamano:      json.tamano    as TamanoRamo,
+        avisos:      json.avisos    ?? [], // ← AQUÍ ESTÁ EL AJUSTE IMPORTANTE
         total:       json.total,
         sucursales:  envioData.sucursales ?? [],
         accesorios_seleccionados: [],
