@@ -114,11 +114,7 @@ export default function SelectorTamano({
                 <span className="text-[10px] sm:text-xs text-gray-400 leading-tight block">
                   ~{t.flores_base} flrs
                 </span>
-                {t.precio_extra > 0 && (
-                  <span className={`text-[10px] sm:text-xs font-medium block mt-0.5 ${activo ? 'text-rose-500' : 'text-gray-400'}`}>
-                    +${t.precio_extra}
-                  </span>
-                )}
+
               </div>
             </button>
           )

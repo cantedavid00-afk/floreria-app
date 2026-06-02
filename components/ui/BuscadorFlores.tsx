@@ -210,9 +210,8 @@ export default function BuscadorFlores({ flores, onAgregar }: BuscadorFloresProp
                           </span>
                         </div>
                       </div>
-                      <span className="text-rose-500 font-semibold text-sm flex-shrink-0 ml-2">
-                        ${flor.precio_unit.toFixed(2)}
-                        <span className="text-gray-400 font-normal"> c/u</span>
+                      <span className="text-xs text-gray-400 flex-shrink-0 ml-2">
+                        {flor.nombre}
                       </span>
                     </li>
                   )
@@ -234,8 +233,8 @@ export default function BuscadorFlores({ flores, onAgregar }: BuscadorFloresProp
               <p className="font-semibold text-gray-800 text-sm">
                 {florSel.nombre} {florSel.color}
               </p>
-              <p className="text-xs text-rose-500">
-                ${florSel.precio_unit.toFixed(2)} por unidad
+              <p className="text-xs text-gray-400">
+                {florSel.nombre}
               </p>
             </div>
           </div>
@@ -261,11 +260,9 @@ export default function BuscadorFlores({ flores, onAgregar }: BuscadorFloresProp
               </button>
             </div>
 
-            {/* Subtotal preview */}
             <div className="text-right">
-              <p className="text-xs text-gray-400">Subtotal</p>
               <p className="text-xl font-bold text-rose-600">
-                ${(florSel.precio_unit * cantidad).toFixed(2)}
+                {cantidad} pieza{cantidad !== 1 ? 's' : ''}
               </p>
             </div>
           </div>

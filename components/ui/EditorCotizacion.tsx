@@ -184,11 +184,6 @@ export default function EditorCotizacion({
     setMensajePresupuesto(`✅ Ajustado. Total: $${recalcular(nd).toFixed(2)}`)
   }
 
-  // ── Subtotales visibles ─────────────────────────────────────
-  const subtotalFloresMostrado = floresPrincipales.reduce((acc, i) => acc + i.flor.precio_unit * i.cantidad, 0)
-  const subtotalFollajeMostrado = follajes.reduce((acc, i) => acc + i.flor.precio_unit * i.cantidad, 0)
-  const papelMostrado           = datos.tamano.papel_precio ?? 0
-
   return (
     <div className="w-full max-w-lg mx-auto space-y-4 pb-10">
 
@@ -376,23 +371,23 @@ export default function EditorCotizacion({
         <h3 className="font-semibold text-rose-100 text-sm mb-3">Resumen del pedido</h3>
 
         {/* Flores */}
-        <div className="space-y-1 mb-2">
-          {floresPrincipales.map((item, i) => (
-            <div key={i} className="flex justify-between text-sm opacity-90">
-              <span>{item.cantidad}× {item.flor.nombre} {item.flor.color}</span>
-              <span>${(item.flor.precio_unit * item.cantidad).toFixed(2)}</span>
-            </div>
-          ))}
-        </div>
+        {floresPrincipales.length > 0 && (
+          <div className="space-y-1 mb-2">
+            {floresPrincipales.map((item, i) => (
+              <div key={i} className="flex justify-between text-sm opacity-90">
+                <span>{item.cantidad}× {item.flor.nombre} {item.flor.color}</span>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Follaje */}
         {follajes.length > 0 && (
           <div className="space-y-1 mb-2">
             <p className="text-xs text-rose-200">Follaje:</p>
             {follajes.map((item, i) => (
-              <div key={i} className="flex justify-between text-sm opacity-80">
+              <div key={i} className="text-sm opacity-80">
                 <span>{item.flor.nombre}</span>
-                <span>${(item.flor.precio_unit * item.cantidad).toFixed(2)}</span>
               </div>
             ))}
           </div>
@@ -400,22 +395,8 @@ export default function EditorCotizacion({
 
         <div className="border-t border-rose-400/50 my-3" />
 
-        {/* Costos fijos */}
+        {/* Costos adicionales */}
         <div className="space-y-1 mb-3">
-          <div className="flex justify-between text-sm opacity-80">
-            <span>Subtotal flores</span>
-            <span>${subtotalFloresMostrado.toFixed(2)}</span>
-          </div>
-          {subtotalFollajeMostrado > 0 && (
-            <div className="flex justify-between text-sm opacity-80">
-              <span>Follaje</span>
-              <span>${subtotalFollajeMostrado.toFixed(2)}</span>
-            </div>
-          )}
-          <div className="flex justify-between text-sm opacity-80">
-            <span>Envoltura ({datos.tamano.nombre})</span>
-            <span>${papelMostrado.toFixed(2)}</span>
-          </div>
           {accesoriosSelec.length > 0 && accesoriosSelec.map(acc => (
             <div key={acc.id} className="flex justify-between text-sm opacity-80">
               <span>{acc.emoji} {acc.nombre}</span>

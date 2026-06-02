@@ -45,7 +45,6 @@ export default function TarjetaFlor({
   onEliminar,
 }: TarjetaFlorProps) {
   const emoji    = EMOJIS[item.flor.nombre] ?? '🌺'
-  const subtotal = item.flor.precio_unit * item.cantidad
 
   return (
     <div className="bg-white border border-rose-100 rounded-2xl p-4 shadow-sm">
@@ -82,18 +81,18 @@ export default function TarjetaFlor({
               >
                 {variantes.map((v) => (
                   <option key={v.id} value={v.id} className="text-gray-800 bg-white">
-                    {v.color} — ${v.precio_unit.toFixed(2)} c/u
+                    {v.color}
                   </option>
                 ))}
               </select>
             </div>
           ) : (
             <p className="text-sm text-gray-500 mb-3">
-              {item.flor.color} · ${item.flor.precio_unit.toFixed(2)} c/u
+              {item.flor.color}
             </p>
           )}
 
-          {/* Cantidad y subtotal */}
+          {/* Cantidad */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <button
@@ -113,7 +112,7 @@ export default function TarjetaFlor({
               </button>
             </div>
             <span className="font-bold text-rose-600 text-lg">
-              ${subtotal.toFixed(2)}
+              {item.cantidad} pzas
             </span>
           </div>
 
