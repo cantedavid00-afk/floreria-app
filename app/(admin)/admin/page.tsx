@@ -57,12 +57,18 @@ export default function AdminPage() {
 
   const cargar = useCallback(async () => {
     setCargando(true)
-    const [rf, rp, rt, ra] = await Promise.all([
-      fetch('/api/admin/flores').then(r => r.json()),
-      fetch('/api/admin/papel').then(r => r.json()),
-      fetch('/api/admin/tamanos').then(r => r.json()),
-      fetch('/api/admin/accesorios').then(r => r.json()),
+    const respuestas = await Promise.all([
+      fetch('/api/admin/flores'),
+      fetch('/api/admin/papel'),
+      fetch('/api/admin/tamanos'),
+      fetch('/api/admin/accesorios'),
     ])
+    // Sesión expirada o inválida: volver al login en lugar de mostrar el catálogo vacío.
+    if (respuestas.some(r => r.status === 401)) {
+      window.location.href = '/admin/login'
+      return
+    }
+    const [rf, rp, rt, ra] = await Promise.all(respuestas.map(r => r.json()))
     setFlores(rf.flores ?? [])
     setPapeles(rp.papeles ?? [])
     setTamanos(rt.tamanos ?? [])

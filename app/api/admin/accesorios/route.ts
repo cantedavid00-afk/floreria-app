@@ -1,8 +1,12 @@
 // app/api/admin/accesorios/route.ts
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/admin-guard'
 import { supabaseAdmin } from '@/lib/supabase'
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const denied = await requireAdmin(req)
+  if (denied) return denied
+
   const { data, error } = await supabaseAdmin
     .from('accesorios').select('*').order('nombre')
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -10,6 +14,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const denied = await requireAdmin(req)
+  if (denied) return denied
+
   const { nombre, emoji, precio_unit } = await req.json()
   const { data, error } = await supabaseAdmin
     .from('accesorios')
@@ -20,6 +27,9 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
+  const denied = await requireAdmin(req)
+  if (denied) return denied
+
   const { id, nombre, emoji, precio_unit, disponible } = await req.json()
   const campos: Record<string, unknown> = {}
   if (nombre     != null) campos.nombre      = nombre
@@ -33,6 +43,9 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const denied = await requireAdmin(req)
+  if (denied) return denied
+
   const { id } = await req.json()
   const { error } = await supabaseAdmin.from('accesorios').delete().eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

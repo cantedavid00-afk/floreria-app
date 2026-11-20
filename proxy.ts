@@ -1,21 +1,29 @@
 // proxy.ts
+// Protege las páginas /admin y las rutas /api/admin verificando la firma y la
+// expiración del token de sesión (antes bastaba con una cookie "true").
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { ADMIN_COOKIE, decideAdminAccess } from './lib/admin-session'
 
-export function proxy(request: NextRequest) {
-  const path = request.nextUrl.pathname
+export async function proxy(request: NextRequest) {
+  const decision = await decideAdminAccess({
+    pathname: request.nextUrl.pathname,
+    method: request.method,
+    token: request.cookies.get(ADMIN_COOKIE)?.value,
+    origin: request.headers.get('origin'),
+    host: request.headers.get('host'),
+  })
 
-  if (path.startsWith('/admin') && !path.startsWith('/admin/login')) {
-    const isAuth = request.cookies.get('admin_session')?.value === 'true'
-
-    if (!isAuth) {
-      return NextResponse.redirect(new URL('/admin/login', request.url))
-    }
+  if (decision === 'allow') return NextResponse.next()
+  if (decision === 'forbidden') {
+    return NextResponse.json({ error: 'Origen no permitido.' }, { status: 403 })
   }
-
-  return NextResponse.next()
+  if (decision === 'unauthorized') {
+    return NextResponse.json({ error: 'No autorizado.' }, { status: 401 })
+  }
+  return NextResponse.redirect(new URL('/admin/login', request.url))
 }
 
 export const config = {
-  matcher: ['/admin/:path*'],
+  matcher: ['/admin/:path*', '/api/admin/:path*'],
 }

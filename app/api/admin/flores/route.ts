@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/admin-guard'
 import { supabaseAdmin } from '@/lib/supabase'
 
 // GET — listar todas (incluyendo no disponibles)
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const denied = await requireAdmin(req)
+  if (denied) return denied
+
   const { data, error } = await supabaseAdmin
     .from('flores')
     .select('*')
@@ -13,6 +17,9 @@ export async function GET() {
 
 // POST — crear nueva flor
 export async function POST(req: NextRequest) {
+  const denied = await requireAdmin(req)
+  if (denied) return denied
+
   const body = await req.json()
   const { nombre, color, precio_unit } = body
   if (!nombre || !color || precio_unit == null)
@@ -30,6 +37,9 @@ export async function POST(req: NextRequest) {
 
 // PATCH — actualizar precio o disponibilidad
 export async function PATCH(req: NextRequest) {
+  const denied = await requireAdmin(req)
+  if (denied) return denied
+
   const body = await req.json()
   const { id, precio_unit, disponible } = body
   if (!id) return NextResponse.json({ error: 'Falta id.' }, { status: 400 })
@@ -51,6 +61,9 @@ export async function PATCH(req: NextRequest) {
 
 // DELETE — eliminar flor
 export async function DELETE(req: NextRequest) {
+  const denied = await requireAdmin(req)
+  if (denied) return denied
+
   const { id } = await req.json()
   if (!id) return NextResponse.json({ error: 'Falta id.' }, { status: 400 })
 

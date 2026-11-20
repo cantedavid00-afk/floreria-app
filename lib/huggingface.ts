@@ -82,14 +82,16 @@ Responde ÚNICAMENTE con este JSON válido, sin texto extra:
     const token = process.env.GITHUB_TOKEN
     if (!token) throw new Error('Falta GITHUB_TOKEN en .env.local')
 
-    const response = await fetch('https://models.inference.ai.azure.com/chat/completions', {
+    // GitHub Models: el endpoint anterior (models.inference.ai.azure.com) dejó de responder;
+    // el actual exige el modelo con prefijo de proveedor y un token con permiso "Models: read".
+    const response = await fetch('https://models.github.ai/inference/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type':  'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: process.env.GITHUB_MODEL || 'openai/gpt-4o-mini',
         messages: [
           { role: 'system', content: 'Eres un experto botánico y florista.' },
           { role: 'user', content: [

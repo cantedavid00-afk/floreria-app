@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/admin-guard'
 import { supabaseAdmin } from '@/lib/supabase'
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const denied = await requireAdmin(req)
+  if (denied) return denied
+
   const { data, error } = await supabaseAdmin
     .from('tamanos_ramo').select('*').order('multiplicador')
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -9,6 +13,9 @@ export async function GET() {
 }
 
 export async function PATCH(req: NextRequest) {
+  const denied = await requireAdmin(req)
+  if (denied) return denied
+
   const { id, precio_extra, flores_base, descripcion } = await req.json()
   const campos: Record<string, unknown> = {}
   if (precio_extra != null) campos.precio_extra = parseFloat(precio_extra)

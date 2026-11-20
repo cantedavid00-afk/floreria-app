@@ -7,7 +7,9 @@ import { useRouter, useSearchParams } from 'next/navigation'
 function LoginForm() {
   const router       = useRouter()
   const searchParams = useSearchParams()
-  const redirect     = searchParams.get('redirect') ?? '/admin'
+  // Solo rutas internas del panel: evita redirecciones abiertas y URLs `javascript:`.
+  const requested    = searchParams.get('redirect') ?? '/admin'
+  const redirect     = /^\/admin(\/[A-Za-z0-9/_-]*)?$/.test(requested) ? requested : '/admin'
 
   const [password, setPassword] = useState('')
   const [error,    setError]    = useState<string | null>(null)
@@ -29,7 +31,8 @@ function LoginForm() {
      if (data.success) {
         window.location.href = redirect
      } else {
-        setError('Contraseña incorrecta. Intenta de nuevo.')
+        // 401: contraseña incorrecta · 429: demasiados intentos · 503: acceso no configurado
+        setError(res.status === 401 ? 'Contraseña incorrecta. Intenta de nuevo.' : (data.message ?? 'No se pudo iniciar sesión.'))
         setCargando(false)
       }
     } catch {

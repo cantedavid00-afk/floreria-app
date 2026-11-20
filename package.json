@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:security": "node --experimental-strip-types --no-warnings --test \"tests/**/*.test.mjs\"",
+    "hash-admin-password": "node --experimental-strip-types --no-warnings scripts/hash-admin-password.mjs"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
