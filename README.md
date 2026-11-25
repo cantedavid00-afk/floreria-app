@@ -1,5 +1,6 @@
 # RoCé Quote — AI Bouquet Quotation from a Photo
 
+[![tests](https://github.com/cantedavid00-afk/floreria-app/actions/workflows/test.yml/badge.svg)](https://github.com/cantedavid00-afk/floreria-app/actions/workflows/test.yml)
 ![Next.js 16](https://img.shields.io/badge/Next.js_16-000000?style=flat-square&logo=nextdotjs&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)
 ![Supabase](https://img.shields.io/badge/Supabase-3FCF8E?style=flat-square&logo=supabase&logoColor=white)
